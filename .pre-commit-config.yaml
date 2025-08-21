@@ -1,0 +1,113 @@
+repos:
+  # Standard file and format checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ".*\\.md$" # Allow trailing spaces in markdown for line breaks
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-added-large-files
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+      - id: debug-statements
+
+  # Rust-specific formatting, linting, and testing
+  - repo: https://github.com/AndrejOrsula/pre-commit-cargo
+    rev: 0.4.0
+    hooks:
+      # Format code with rustfmt
+      - id: cargo-fmt
+        args: ["--all"]
+
+      # Comprehensive linting with clippy (warnings as errors)
+      - id: cargo-clippy
+        args: ["--all-targets", "--all-features", "--", "-D", "warnings"]
+
+      # Verify code compiles without errors
+      - id: cargo-check
+        args: ["--all-targets", "--all-features"]
+
+      # Run tests to ensure functionality
+      - id: cargo-test
+        args: ["--all-targets", "--all-features"]
+        # Skip tests in CI that might require external resources
+        stages: [manual]
+
+  # Security, license, and dependency policy enforcement
+  - repo: https://github.com/EmbarkStudios/cargo-deny
+    rev: 0.18.4
+    hooks:
+      - id: cargo-deny
+        args: ["check"] # Run all checks: licenses, bans, advisories, sources
+
+  # Code formatting for multiple file types
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v4.0.0-alpha.8
+    hooks:
+      - id: prettier
+        exclude: |
+          (?x)^(
+            Cargo\.lock$|
+            .*\.rs$
+          )$
+
+  # Secret scanning
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.28.0
+    hooks:
+      - id: gitleaks
+
+  # Shell script linting
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
+    hooks:
+      - id: shellcheck
+        files: ".*\\.sh$"
+
+  # YAML linting
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.37.1
+    hooks:
+      - id: yamllint
+        args: [-c=.yamllint.yml]
+
+  # Markdown linting and formatting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.45.0
+    hooks:
+      - id: markdownlint
+        args: ["--fix"]
+        exclude: |
+          (?x)^(
+            CHANGELOG\.md$
+          )$
+
+  # Conventional commits enforcement
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.2.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: [--strict, --verbose]
+
+  # Kubernetes manifests quality checking
+  - repo: local
+    hooks:
+      - id: kube-score
+        name: kube-score
+        entry: >-
+          sh -c 'find tmp/k8s -name "*.yaml" -type f 2>/dev/null |
+          xargs kube-score score 2>/dev/null || true'
+        language: system
+        files: tmp/k8s/.*\.yaml$
+        pass_filenames: false
+        args: []
+
+# Global configuration
+default_stages: [pre-commit]
+fail_fast: false # Run all hooks even if one fails to get complete feedback

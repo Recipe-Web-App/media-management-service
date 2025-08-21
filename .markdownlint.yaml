@@ -1,0 +1,37 @@
+# markdownlint configuration for Rust media management service
+# See: https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+
+# Extend default rules
+extends: null
+
+# Rule configuration
+default: true
+
+# Line length - accommodate longer lines for URLs and code examples
+MD013:
+  line_length: 120
+  heading_line_length: 80
+  code_block_line_length: 120
+  tables: false
+  headers: false
+  stern: false
+
+# Multiple headers with same content - allow for API documentation
+MD024:
+  siblings_only: true
+
+# Inline HTML - allow for enhanced formatting in documentation
+MD033:
+  allowed_elements: ["br", "sub", "sup", "kbd", "details", "summary"]
+
+# Bare URLs - allow for reference links
+MD034: false
+
+# First line in file - allow flexibility for documentation
+MD041: false
+
+# Fenced code language - require language specification for syntax highlighting
+MD040: true
+
+# Link fragments - be lenient with internal documentation links
+MD051: false
