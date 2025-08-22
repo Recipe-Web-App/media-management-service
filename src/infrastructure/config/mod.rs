@@ -1,9 +1,39 @@
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 
+/// Runtime mode for the application
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RuntimeMode {
+    Local,
+    Production,
+}
+
+impl std::fmt::Display for RuntimeMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Local => write!(f, "local"),
+            Self::Production => write!(f, "production"),
+        }
+    }
+}
+
+impl std::str::FromStr for RuntimeMode {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "local" => Ok(Self::Local),
+            "production" | "prod" => Ok(Self::Production),
+            _ => Err(format!("Invalid runtime mode: {s}. Valid values: local, production")),
+        }
+    }
+}
+
 /// Application configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
+    pub mode: RuntimeMode,
     pub server: ServerConfig,
     pub database: DatabaseConfig,
     pub storage: StorageConfig,
@@ -49,14 +79,46 @@ pub struct LoggingConfig {
 }
 
 impl AppConfig {
-    /// Load configuration from environment variables
+    /// Load configuration based on runtime mode
     ///
     /// # Errors
     /// Returns an error if required environment variables are missing or invalid
-    pub fn from_env() -> Result<Self, config::ConfigError> {
-        let settings = config::Config::builder()
+    pub fn load() -> Result<Self, config::ConfigError> {
+        // Detect runtime mode from environment (default: local)
+        let mode = std::env::var("RUN_MODE")
+            .unwrap_or_else(|_| "local".to_string())
+            .parse::<RuntimeMode>()
+            .map_err(config::ConfigError::Message)?;
+
+        Self::load_for_mode(mode)
+    }
+
+    /// Load configuration for a specific runtime mode
+    ///
+    /// # Errors
+    /// Returns an error if required environment variables are missing or invalid
+    pub fn load_for_mode(mode: RuntimeMode) -> Result<Self, config::ConfigError> {
+        let mut builder = config::Config::builder();
+
+        // For local mode only, load .env.local file (if it exists)
+        if mode == RuntimeMode::Local {
+            builder = builder.add_source(config::File::with_name(".env.local").required(false));
+        }
+        // Production mode relies solely on environment variables (no .env file)
+
+        // Add environment variables (these override .env file values)
+        builder = builder
             .add_source(config::Environment::with_prefix("MEDIA_SERVICE"))
-            .add_source(config::Environment::default())
+            .add_source(config::Environment::default());
+
+        // Set mode-specific defaults
+        let (storage_base, storage_temp) = match mode {
+            RuntimeMode::Local => ("./media", "./media/temp"),
+            RuntimeMode::Production => ("/app/media", "/app/media/temp"),
+        };
+
+        let settings = builder
+            .set_default("mode", mode.to_string())?
             .set_default("server.host", "0.0.0.0")?
             .set_default("server.port", 3000)?
             .set_default("server.max_upload_size", 100_000_000)? // 100MB
@@ -64,20 +126,35 @@ impl AppConfig {
             .set_default("database.max_connections", 10)?
             .set_default("database.min_connections", 1)?
             .set_default("database.acquire_timeout_seconds", 30)?
-            .set_default("database.host", "localhost")?
-            .set_default("database.port", 5432)?
-            .set_default("database.database", "recipe_database")?
-            .set_default("database.schema", "recipe_manager")?
-            .set_default("database.user", "postgres")?
-            .set_default("database.password", "")?
-            .set_default("storage.base_path", "./media")?
-            .set_default("storage.temp_path", "./media/temp")?
+            .set_default("postgres.host", "localhost")?
+            .set_default("postgres.port", 5432)?
+            .set_default("postgres.db", "recipe_database")?
+            .set_default("postgres.schema", "recipe_manager")?
+            .set_default("media_management_db.user", "postgres")?
+            .set_default("media_management_db.password", "")?
+            .set_default("storage.base_path", storage_base)?
+            .set_default("storage.temp_path", storage_temp)?
             .set_default("storage.max_file_size", 500_000_000)? // 500MB
             .set_default("logging.level", "info")?
-            .set_default("logging.format", "json")?
+            .set_default(
+                "logging.format",
+                match mode {
+                    RuntimeMode::Local => "pretty",
+                    RuntimeMode::Production => "json",
+                },
+            )?
             .build()?;
 
         settings.try_deserialize()
+    }
+
+    /// Load configuration from environment variables only (legacy method)
+    ///
+    /// # Errors
+    /// Returns an error if required environment variables are missing or invalid
+    #[deprecated(note = "Use AppConfig::load() instead")]
+    pub fn from_env() -> Result<Self, config::ConfigError> {
+        Self::load_for_mode(RuntimeMode::Production)
     }
 }
 
@@ -195,6 +272,7 @@ mod tests {
     #[test]
     fn test_app_config_serialization() {
         let config = AppConfig {
+            mode: RuntimeMode::Local,
             server: create_test_server_config(),
             database: create_test_database_config(),
             storage: create_test_storage_config(),

@@ -2,7 +2,7 @@
 # Optimized for production deployment with security and performance considerations
 
 # Build stage
-FROM rust:1.89-bookworm as builder
+FROM rust:1.89-bookworm AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -31,18 +31,20 @@ RUN cargo build --release
 # Runtime stage - minimal image
 FROM debian:bookworm-slim
 
-# Install runtime dependencies
+# Install runtime dependencies including media processing tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     libssl3 \
+    curl \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
 # Create non-root user for security
 RUN groupadd -r media && useradd -r -g media -s /bin/false media
 
-# Create necessary directories
-RUN mkdir -p /app/data /app/logs && \
+# Create necessary directories for media storage
+RUN mkdir -p /app/media /app/media/temp /app/logs && \
     chown -R media:media /app
 
 # Copy binary from builder stage

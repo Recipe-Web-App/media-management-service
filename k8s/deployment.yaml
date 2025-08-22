@@ -1,0 +1,96 @@
+---
+# k8s/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: media-management-service
+  namespace: media-management
+  labels:
+    app: media-management-service
+  annotations:
+    # Ignoring image tag and pull policy checks since we build images locally
+    kube-score/ignore: container-image-tag,container-image-pull-policy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: media-management-service
+  template:
+    metadata:
+      labels:
+        app: media-management-service
+    spec:
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 10
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - media-management-service
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: media-management-service
+          image: media-management-service:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: media-management-config
+            - secretRef:
+                name: media-management-secrets
+          readinessProbe:
+            httpGet:
+              path: /api/v1/media-management/ready
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/v1/media-management/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+              ephemeral-storage: "100Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+              ephemeral-storage: "500Mi"
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: media-storage
+              mountPath: /app/media
+            - name: logs-volume
+              mountPath: /app/logs
+            - name: tmp-volume
+              mountPath: /tmp
+      volumes:
+        - name: media-storage
+          emptyDir:
+            sizeLimit: 10Gi
+        - name: logs-volume
+          emptyDir: {}
+        - name: tmp-volume
+          emptyDir: {}

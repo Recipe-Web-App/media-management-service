@@ -3,6 +3,7 @@ use axum::{
     Router,
 };
 
+use crate::infrastructure::http::{health_check, readiness_check_no_db};
 use crate::presentation::handlers;
 
 /// Create all application routes
@@ -12,7 +13,10 @@ pub fn create_routes() -> Router {
 
 /// Create media management service routes
 fn media_management_routes() -> Router {
-    Router::new().nest("/media", media_routes())
+    Router::new()
+        .route("/health", get(health_check))
+        .route("/ready", get(readiness_check_no_db))
+        .nest("/media", media_routes())
 }
 
 /// Create media-related routes
