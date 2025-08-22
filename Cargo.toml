@@ -25,3 +25,10 @@ validator = "0.20.0"
 
 [dev-dependencies]
 reqwest = "0.12.23"
+tokio-test = "0.4.4"
+mockall = "0.13.1"
+rstest = "0.24.0"
+claims = "0.7.1"
+tempfile = "3.14.0"
+fake = { version = "2.10.0", features = ["derive", "uuid", "chrono"] }
+proptest = "1.5.0"

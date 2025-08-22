@@ -12,10 +12,36 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Testing & Quality
 
-- `cargo test` - Run all tests
+- `cargo test` - Run all tests (unit and integration)
+- `cargo test --lib` - Run only unit tests in src/ modules
+- `cargo test --test integration` - Run only integration tests
+- `cargo test -- --nocapture` - Run tests with output visible
 - `cargo fmt --all` - Format all code according to rustfmt.toml configuration
 - `cargo clippy --all-targets --all-features -- -D warnings` - Run linter with warnings as errors
 - `cargo check` - Quick compile check without building executable
+
+### Code Coverage
+
+#### Primary Tool: cargo-llvm-cov (recommended)
+
+- `cargo llvm-cov` - Generate code coverage report with summary
+- `cargo llvm-cov --html` - Generate HTML coverage report in target/llvm-cov/html/
+- `cargo llvm-cov --lcov --output-path target/llvm-cov/lcov.info` - Generate LCOV format for CI/CD
+- `cargo llvm-cov --json --output-path target/llvm-cov/coverage.json` - Generate JSON report
+- `cargo llvm-cov --workspace` - Include all workspace packages
+
+#### Alternative Tool: cargo-tarpaulin
+
+- `cargo tarpaulin` - Generate code coverage report (uses .tarpaulin.toml config)
+- `cargo tarpaulin --out html` - Generate HTML coverage report in target/tarpaulin/
+- `cargo tarpaulin --out xml` - Generate XML coverage report for CI/CD
+
+**Coverage Requirements:**
+
+- Target: 80% minimum line coverage
+- Domain layer should achieve 90%+ coverage
+- Infrastructure layer may have lower coverage due to external dependencies
+- main.rs excluded from coverage (integration testing more appropriate)
 
 ### Pre-commit Integration
 
@@ -174,6 +200,35 @@ will catch formatting and linting issues automatically.
 - **Stream Processing** - Handle large files with streaming to prevent memory exhaustion
 - **Connection Pooling** - Use database connection pools for efficiency
 - **Caching Strategy** - Implement multi-level caching for frequently accessed content
+
+### Testing Framework
+
+The project uses a comprehensive testing framework with the following structure:
+
+#### Testing Dependencies
+
+- `tokio-test` - Async testing utilities
+- `mockall` - Mock generation for traits
+- `rstest` - Parameterized and fixture-based testing
+- `claims` - Better assertions for tests
+- `tempfile` - Temporary file/directory testing
+- `fake` - Data generation for tests
+- `proptest` - Property-based testing
+
+#### Test Organization
+
+- **Unit Tests**: Located in `#[cfg(test)]` modules within each source file
+- **Integration Tests**: Located in `tests/` directory
+- **Test Utilities**: `tests/common/` contains shared testing infrastructure
+- **Mock Implementations**: Repository and service mocks for isolated testing
+
+#### Testing Guidelines
+
+- Use `MediaBuilder` for creating test entities with sensible defaults
+- Use `InMemoryMediaRepository` for testing repository logic without database
+- Use `TestApp` for HTTP endpoint testing with proper assertions
+- Write property-based tests for value objects to catch edge cases
+- Mock external dependencies using `mockall` traits
 
 ### Future Considerations
 

@@ -1,0 +1,49 @@
+[tool.tarpaulin]
+# Coverage configuration for the media management service
+
+# Include all workspace packages
+all-features = true
+all-targets = true
+
+# Output formats
+out = ["Html", "Lcov", "Xml"]
+
+# Timeout in seconds
+timeout = 120
+
+# Exclude certain files and patterns from coverage
+exclude-files = [
+    "src/main.rs",                    # Main function is hard to test
+    "tests/*",                        # Don't include test code in coverage
+    "target/*",                       # Exclude build artifacts
+    "**/tests.rs",                    # Exclude test modules
+    "**/test_*.rs",                   # Exclude test files
+]
+
+# Include source directories
+include-dir = ["src/"]
+
+# Coverage threshold (percentage)
+fail-under = 80
+
+# Run in verbose mode for detailed output
+verbose = true
+
+# Use the default engine (ptrace)
+engine = "auto"
+
+# Generate line-by-line coverage
+line = true
+branch = true
+
+# Follow symbolic links
+follow-links = true
+
+# Count only lines that are hit
+count = true
+
+# Ignore panics in coverage calculation
+ignore-panics = true
+
+# Post-test delay
+post-test-delay = 0

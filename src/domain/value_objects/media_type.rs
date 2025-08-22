@@ -125,3 +125,60 @@ impl VideoFormat {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_image_media_type() {
+        let media_type = MediaType::Image { format: ImageFormat::Jpeg, width: 1920, height: 1080 };
+
+        assert!(media_type.is_image());
+        assert!(!media_type.is_video());
+        assert_eq!(media_type.file_extension(), "jpg");
+        assert_eq!(media_type.mime_type(), "image/jpeg");
+        assert_eq!(media_type.dimensions(), (1920, 1080));
+    }
+
+    #[test]
+    fn test_video_media_type() {
+        let media_type = MediaType::Video {
+            format: VideoFormat::Mp4,
+            width: 1280,
+            height: 720,
+            duration_seconds: Some(120),
+        };
+
+        assert!(!media_type.is_image());
+        assert!(media_type.is_video());
+        assert_eq!(media_type.file_extension(), "mp4");
+        assert_eq!(media_type.mime_type(), "video/mp4");
+        assert_eq!(media_type.dimensions(), (1280, 720));
+    }
+
+    #[test]
+    fn test_image_format_properties() {
+        assert_eq!(ImageFormat::Png.file_extension(), "png");
+        assert_eq!(ImageFormat::Png.mime_type(), "image/png");
+        assert!(ImageFormat::Png.supports_transparency());
+        assert!(!ImageFormat::Png.supports_animation());
+
+        assert_eq!(ImageFormat::Gif.file_extension(), "gif");
+        assert_eq!(ImageFormat::Gif.mime_type(), "image/gif");
+        assert!(ImageFormat::Gif.supports_transparency());
+        assert!(ImageFormat::Gif.supports_animation());
+
+        assert!(!ImageFormat::Jpeg.supports_transparency());
+        assert!(!ImageFormat::Jpeg.supports_animation());
+    }
+
+    #[test]
+    fn test_video_format_properties() {
+        assert_eq!(VideoFormat::WebM.file_extension(), "webm");
+        assert_eq!(VideoFormat::WebM.mime_type(), "video/webm");
+
+        assert_eq!(VideoFormat::Mov.file_extension(), "mov");
+        assert_eq!(VideoFormat::Mov.mime_type(), "video/quicktime");
+    }
+}

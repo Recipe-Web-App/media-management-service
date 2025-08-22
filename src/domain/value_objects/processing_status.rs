@@ -58,3 +58,54 @@ impl std::fmt::Display for ProcessingStatus {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pending_status() {
+        let status = ProcessingStatus::Pending;
+        assert!(status.is_pending());
+        assert!(!status.is_processing());
+        assert!(!status.is_complete());
+        assert!(!status.is_failed());
+        assert_eq!(status.error_message(), None);
+        assert_eq!(status.to_string(), "pending");
+    }
+
+    #[test]
+    fn test_processing_status() {
+        let status = ProcessingStatus::Processing;
+        assert!(!status.is_pending());
+        assert!(status.is_processing());
+        assert!(!status.is_complete());
+        assert!(!status.is_failed());
+        assert_eq!(status.error_message(), None);
+        assert_eq!(status.to_string(), "processing");
+    }
+
+    #[test]
+    fn test_complete_status() {
+        let status = ProcessingStatus::Complete;
+        assert!(!status.is_pending());
+        assert!(!status.is_processing());
+        assert!(status.is_complete());
+        assert!(!status.is_failed());
+        assert_eq!(status.error_message(), None);
+        assert_eq!(status.to_string(), "complete");
+    }
+
+    #[test]
+    fn test_failed_status() {
+        let error_msg = "Invalid file format";
+        let status = ProcessingStatus::Failed(error_msg.to_string());
+
+        assert!(!status.is_pending());
+        assert!(!status.is_processing());
+        assert!(!status.is_complete());
+        assert!(status.is_failed());
+        assert_eq!(status.error_message(), Some(error_msg));
+        assert_eq!(status.to_string(), "failed: Invalid file format");
+    }
+}
