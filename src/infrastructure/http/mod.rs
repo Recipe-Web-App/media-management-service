@@ -135,7 +135,21 @@ mod tests {
                 temp_path: "/tmp/test/temp".to_string(),
                 max_file_size: 10_000_000,
             },
-            logging: LoggingConfig { level: "info".to_string(), format: "json".to_string() },
+            logging: LoggingConfig {
+                level: "info".to_string(),
+                filter: None,
+                console_enabled: true,
+                console_format: crate::infrastructure::config::LogFormat::Json,
+                file_enabled: false, // Disable file logging in tests
+                file_format: crate::infrastructure::config::LogFormat::Json,
+                file_path: "/tmp/test/logs".to_string(),
+                file_prefix: "test".to_string(),
+                file_rotation: crate::infrastructure::config::RotationPolicy::Daily,
+                file_retention_days: 1,
+                file_max_size_mb: None,
+                non_blocking: false,
+                buffer_size: None,
+            },
         }
     }
 

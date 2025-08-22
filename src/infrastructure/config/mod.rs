@@ -74,8 +74,46 @@ pub struct StorageConfig {
 /// Logging configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoggingConfig {
+    // Global settings
     pub level: String,
-    pub format: String, // "json" or "pretty"
+    pub filter: Option<String>,
+
+    // Console logging
+    pub console_enabled: bool,
+    pub console_format: LogFormat,
+
+    // File logging
+    pub file_enabled: bool,
+    pub file_format: LogFormat,
+    pub file_path: String,
+    pub file_prefix: String,
+    pub file_rotation: RotationPolicy,
+    pub file_retention_days: u32,
+    pub file_max_size_mb: Option<u64>,
+
+    // Performance settings
+    pub non_blocking: bool,
+    pub buffer_size: Option<usize>,
+}
+
+/// Log output format
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LogFormat {
+    Pretty,
+    Json,
+    Compact,
+}
+
+/// Log file rotation policy
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RotationPolicy {
+    Daily,
+    Hourly,
+    #[serde(rename = "size")]
+    Size(u64), // Size in MB
+    Never,
 }
 
 impl AppConfig {
@@ -112,9 +150,11 @@ impl AppConfig {
             .add_source(config::Environment::default());
 
         // Set mode-specific defaults
-        let (storage_base, storage_temp) = match mode {
-            RuntimeMode::Local => ("./media", "./media/temp"),
-            RuntimeMode::Production => ("/app/media", "/app/media/temp"),
+        let (storage_base, storage_temp, log_path, console_format, file_format) = match mode {
+            RuntimeMode::Local => ("./media", "./media/temp", "./logs", "pretty", "json"),
+            RuntimeMode::Production => {
+                ("/app/media", "/app/media/temp", "/app/logs", "json", "json")
+            }
         };
 
         let settings = builder
@@ -126,23 +166,29 @@ impl AppConfig {
             .set_default("database.max_connections", 10)?
             .set_default("database.min_connections", 1)?
             .set_default("database.acquire_timeout_seconds", 30)?
-            .set_default("postgres.host", "localhost")?
-            .set_default("postgres.port", 5432)?
-            .set_default("postgres.db", "recipe_database")?
-            .set_default("postgres.schema", "recipe_manager")?
-            .set_default("media_management_db.user", "postgres")?
-            .set_default("media_management_db.password", "")?
+            .set_default("database.host", "localhost")?
+            .set_default("database.port", 5432)?
+            .set_default("database.database", "recipe_database")?
+            .set_default("database.schema", "recipe_manager")?
+            .set_default("database.user", "postgres")?
+            .set_default("database.password", "")?
             .set_default("storage.base_path", storage_base)?
             .set_default("storage.temp_path", storage_temp)?
             .set_default("storage.max_file_size", 500_000_000)? // 500MB
+            // Logging configuration
             .set_default("logging.level", "info")?
-            .set_default(
-                "logging.format",
-                match mode {
-                    RuntimeMode::Local => "pretty",
-                    RuntimeMode::Production => "json",
-                },
-            )?
+            .set_default("logging.filter", None::<String>)?
+            .set_default("logging.console_enabled", true)?
+            .set_default("logging.console_format", console_format)?
+            .set_default("logging.file_enabled", true)?
+            .set_default("logging.file_format", file_format)?
+            .set_default("logging.file_path", log_path)?
+            .set_default("logging.file_prefix", "media-service")?
+            .set_default("logging.file_rotation", "daily")?
+            .set_default("logging.file_retention_days", 10)?
+            .set_default("logging.file_max_size_mb", None::<u64>)?
+            .set_default("logging.non_blocking", true)?
+            .set_default("logging.buffer_size", 8192_i64)?
             .build()?;
 
         settings.try_deserialize()
@@ -218,7 +264,21 @@ mod tests {
     }
 
     fn create_test_logging_config() -> LoggingConfig {
-        LoggingConfig { level: "info".to_string(), format: "json".to_string() }
+        LoggingConfig {
+            level: "info".to_string(),
+            filter: None,
+            console_enabled: true,
+            console_format: LogFormat::Pretty,
+            file_enabled: true,
+            file_format: LogFormat::Json,
+            file_path: "./logs".to_string(),
+            file_prefix: "test".to_string(),
+            file_rotation: RotationPolicy::Daily,
+            file_retention_days: 10,
+            file_max_size_mb: None,
+            non_blocking: true,
+            buffer_size: Some(8192),
+        }
     }
 
     #[test]
@@ -323,10 +383,13 @@ mod tests {
 
     #[test]
     fn test_logging_config_values() {
-        let logging = LoggingConfig { level: "debug".to_string(), format: "pretty".to_string() };
+        let logging = create_test_logging_config();
 
         assert!(["trace", "debug", "info", "warn", "error"].contains(&logging.level.as_str()));
-        assert!(["json", "pretty"].contains(&logging.format.as_str()));
+        assert!(logging.console_enabled || logging.file_enabled); // At least one output should be enabled
+        assert!(logging.file_retention_days > 0);
+        assert!(!logging.file_path.is_empty());
+        assert!(!logging.file_prefix.is_empty());
     }
 
     #[test]
