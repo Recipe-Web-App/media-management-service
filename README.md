@@ -85,23 +85,55 @@ src/
    cd media-management-service
    ```
 
-2. **Install dependencies**
+2. **Configure environment**
+
+   ```bash
+   # Copy and customize local environment file
+   cp .env.example .env.local
+   # Edit .env.local with your local database settings
+   ```
+
+3. **Install dependencies**
 
    ```bash
    cargo build
    ```
 
-3. **Set up pre-commit hooks**
+4. **Set up pre-commit hooks**
 
    ```bash
    pre-commit install
    ```
 
-4. **Run the service**
+5. **Run the service** (defaults to local mode)
 
    ```bash
    cargo run
    ```
+
+### Run Modes
+
+The service supports two runtime modes:
+
+#### **Local Mode** (Default)
+
+- **Configuration**: Loads from `.env.local` file + environment variables
+- **Storage**: Uses relative paths (`./media`, `./media/temp`)
+- **Logging**: Pretty format for readable development logs
+- **Usage**: Automatic when no `RUN_MODE` set, or `RUN_MODE=local`
+
+#### **Production Mode**
+
+- **Configuration**: Environment variables only (no .env file loading)
+- **Storage**: Uses absolute container paths (`/app/media`, `/app/media/temp`)
+- **Logging**: JSON format for structured production logs
+- **Usage**: Set `RUN_MODE=production` or deploy to Kubernetes
+
+### Environment Files
+
+- **`.env.local`** - Local development configuration
+- **`.env.prod`** - Production deployment configuration (used by deployment scripts)
+- **`.env.example`** - Template and documentation
 
 ### Development Commands
 
@@ -141,8 +173,8 @@ pre-commit run --all-files    # Run all quality checks manually
 
 ### Health & Monitoring
 
-- `GET /health` - Service health check (Kubernetes liveness probe)
-- `GET /ready` - Service readiness check (Kubernetes readiness probe)
+- `GET /api/v1/media-management/health` - Service health check (Kubernetes liveness probe)
+- `GET /api/v1/media-management/ready` - Service readiness check (Kubernetes readiness probe)
 
 ### Media Management API (v1)
 
@@ -157,7 +189,7 @@ Base URL: `http://localhost:3000/api/v1/media-management`
 
 ```bash
 # Health check
-curl http://localhost:3000/health
+curl http://localhost:3000/api/v1/media-management/health
 
 # Upload media (multipart form-data)
 curl -X POST http://localhost:3000/api/v1/media-management/media/ \
@@ -185,7 +217,9 @@ curl http://localhost:3000/api/v1/media-management/media/{media-id}/download \
 
 ## 🚀 Deployment
 
-Designed for **Kubernetes deployment** with:
+### Kubernetes Deployment
+
+The service is designed for **Kubernetes deployment** with:
 
 - Health and readiness probes
 - Graceful shutdown handling
@@ -193,7 +227,43 @@ Designed for **Kubernetes deployment** with:
 - Horizontal pod autoscaling support
 - Prometheus metrics export
 
-See **[docs/deployment/](docs/deployment/)** for detailed deployment guides (planned).
+#### Quick Deployment
+
+```bash
+# Deploy to local Minikube
+./scripts/containerManagement/deploy-container.sh
+
+# Check deployment status
+./scripts/containerManagement/get-container-status.sh
+
+# Access service
+curl http://media-management.local/api/v1/media-management/health
+```
+
+#### Container Management Scripts
+
+| Script                    | Purpose                                                       |
+| ------------------------- | ------------------------------------------------------------- |
+| `deploy-container.sh`     | Full deployment to Minikube (builds image, applies manifests) |
+| `start-container.sh`      | Start existing deployment (scale to 1 replica)                |
+| `stop-container.sh`       | Stop deployment (scale to 0 replicas)                         |
+| `update-container.sh`     | Rebuild image and restart deployment                          |
+| `cleanup-container.sh`    | Remove all Kubernetes resources                               |
+| `get-container-status.sh` | Show comprehensive deployment status                          |
+
+#### Prerequisites
+
+- **Minikube** - Local Kubernetes cluster
+- **kubectl** - Kubernetes CLI tool
+- **Docker** - Container runtime
+- **jq** - JSON processing tool
+
+#### Environment Configuration
+
+The deployment uses `.env.prod` for environment variable substitution in Kubernetes manifests. Configure your
+production settings in this file before deployment.
+
+See **[docs/deployment/kubernetes.md](docs/deployment/kubernetes.md)** for detailed deployment guides.
 
 ## 🤝 Contributing
 
