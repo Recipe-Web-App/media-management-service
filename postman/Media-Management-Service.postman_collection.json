@@ -1,0 +1,661 @@
+{
+  "info": {
+    "name": "Media Management Service",
+    "description": "Complete API testing collection for Media Management Service with organized endpoints by category. Handles file uploads, processing, storage, and retrieval with content-addressable storage.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{mediaServiceAccessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "testMediaId",
+      "value": "550e8400-e29b-41d4-a716-446655440000",
+      "type": "string",
+      "description": "Sample media ID for testing"
+    },
+    {
+      "key": "testFilename",
+      "value": "test-image.jpg",
+      "type": "string",
+      "description": "Sample filename for testing"
+    },
+    {
+      "key": "createdMediaId",
+      "value": "",
+      "type": "string",
+      "description": "Auto-extracted media ID from upload responses"
+    },
+    {
+      "key": "createdContentHash",
+      "value": "",
+      "type": "string",
+      "description": "Auto-extracted content hash from upload responses"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health & Monitoring",
+      "item": [
+        {
+          "name": "Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has correct structure', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('status');",
+                  "    pm.expect(jsonData).to.have.property('timestamp');",
+                  "    pm.expect(jsonData).to.have.property('service');",
+                  "    pm.expect(jsonData.status).to.eql('healthy');",
+                  "    pm.expect(jsonData.service).to.eql('media-management-service');",
+                  "});",
+                  "",
+                  "pm.test('Response time is less than 1000ms', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(1000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{mediaServiceBaseUrl}}/health",
+              "host": ["{{mediaServiceBaseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Service health check endpoint for Kubernetes liveness probe"
+          },
+          "response": []
+        },
+        {
+          "name": "Readiness Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has correct structure', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('status');",
+                  "    pm.expect(jsonData).to.have.property('timestamp');",
+                  "    pm.expect(jsonData).to.have.property('checks');",
+                  "    pm.expect(jsonData.status).to.eql('ready');",
+                  "});",
+                  "",
+                  "pm.test('All dependency checks are ok', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.checks).to.have.property('database', 'ok');",
+                  "    pm.expect(jsonData.checks).to.have.property('storage', 'ok');",
+                  "});",
+                  "",
+                  "pm.test('Response time is less than 1000ms', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(1000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{mediaServiceBaseUrl}}/ready",
+              "host": ["{{mediaServiceBaseUrl}}"],
+              "path": ["ready"]
+            },
+            "description": "Service readiness check endpoint for Kubernetes readiness probe"
+          },
+          "response": []
+        }
+      ],
+      "description": "Health monitoring endpoints for operational status checks"
+    },
+    {
+      "name": "Media Upload",
+      "item": [
+        {
+          "name": "Upload Media File",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Currently returns 501 Not Implemented - update when implemented",
+                  "pm.test('Status code is 501 (Not Implemented)', function () {",
+                  "    pm.response.to.have.status(501);",
+                  "});",
+                  "",
+                  "pm.test('Response has error structure', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('error');",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "});",
+                  "",
+                  "// TODO: Update when upload is implemented",
+                  "// pm.test('Extract media ID from response', function () {",
+                  "//     const jsonData = pm.response.json();",
+                  "//     if (jsonData.media_id) {",
+                  "//         pm.collectionVariables.set('createdMediaId', jsonData.media_id);",
+                  "//     }",
+                  "//     if (jsonData.content_hash) {",
+                  "//         pm.collectionVariables.set('createdContentHash', jsonData.content_hash);",
+                  "//     }",
+                  "// });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "Media file to upload"
+                },
+                {
+                  "key": "filename",
+                  "value": "{{testFilename}}",
+                  "type": "text",
+                  "description": "Original filename"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{mediaServiceApiUrl}}/media/",
+              "host": ["{{mediaServiceApiUrl}}"],
+              "path": ["media", ""]
+            },
+            "description": "Upload a new media file with multipart form-data"
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Image (JPEG)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Currently returns 501 Not Implemented",
+                  "pm.test('Status code is 501 (Not Implemented)', function () {",
+                  "    pm.response.to.have.status(501);",
+                  "});",
+                  "",
+                  "// TODO: Update when upload is implemented",
+                  "// pm.test('Accepts JPEG files', function () {",
+                  "//     pm.response.to.have.status(201);",
+                  "//     const jsonData = pm.response.json();",
+                  "//     pm.expect(jsonData).to.have.property('media_id');",
+                  "//     pm.expect(jsonData).to.have.property('content_hash');",
+                  "// });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "JPEG image file"
+                },
+                {
+                  "key": "filename",
+                  "value": "test-image.jpg",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{mediaServiceApiUrl}}/media/",
+              "host": ["{{mediaServiceApiUrl}}"],
+              "path": ["media", ""]
+            },
+            "description": "Test uploading a JPEG image file"
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Video (MP4)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Currently returns 501 Not Implemented",
+                  "pm.test('Status code is 501 (Not Implemented)', function () {",
+                  "    pm.response.to.have.status(501);",
+                  "});",
+                  "",
+                  "// TODO: Update when upload is implemented",
+                  "// pm.test('Accepts MP4 files', function () {",
+                  "//     pm.response.to.have.status(201);",
+                  "//     const jsonData = pm.response.json();",
+                  "//     pm.expect(jsonData).to.have.property('media_id');",
+                  "//     pm.expect(jsonData).to.have.property('content_hash');",
+                  "// });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "MP4 video file"
+                },
+                {
+                  "key": "filename",
+                  "value": "test-video.mp4",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{mediaServiceApiUrl}}/media/",
+              "host": ["{{mediaServiceApiUrl}}"],
+              "path": ["media", ""]
+            },
+            "description": "Test uploading an MP4 video file"
+          },
+          "response": []
+        }
+      ],
+      "description": "Media file upload endpoints with different file types"
+    },
+    {
+      "name": "Media Retrieval",
+      "item": [
+        {
+          "name": "List All Media",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Currently returns empty array - update when implemented",
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is an array', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.be.an('array');",
+                  "});",
+                  "",
+                  "// TODO: Update when listing is implemented",
+                  "// pm.test('Media items have required fields', function () {",
+                  "//     const jsonData = pm.response.json();",
+                  "//     if (jsonData.length > 0) {",
+                  "//         const media = jsonData[0];",
+                  "//         pm.expect(media).to.have.property('id');",
+                  "//         pm.expect(media).to.have.property('content_hash');",
+                  "//         pm.expect(media).to.have.property('original_filename');",
+                  "//         pm.expect(media).to.have.property('file_size');",
+                  "//         pm.expect(media).to.have.property('processing_status');",
+                  "//     }",
+                  "// });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{mediaServiceApiUrl}}/media/",
+              "host": ["{{mediaServiceApiUrl}}"],
+              "path": ["media", ""]
+            },
+            "description": "Retrieve all media files"
+          },
+          "response": []
+        },
+        {
+          "name": "List Media with Query Parameters",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is an array', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.be.an('array');",
+                  "});",
+                  "",
+                  "// TODO: Update when filtering is implemented",
+                  "// pm.test('Respects limit parameter', function () {",
+                  "//     const jsonData = pm.response.json();",
+                  "//     pm.expect(jsonData.length).to.be.at.most(10);",
+                  "// });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{mediaServiceApiUrl}}/media/?limit=10&offset=0&status=complete",
+              "host": ["{{mediaServiceApiUrl}}"],
+              "path": ["media", ""],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Maximum number of results"
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "description": "Number of results to skip"
+                },
+                {
+                  "key": "status",
+                  "value": "complete",
+                  "description": "Filter by processing status"
+                }
+              ]
+            },
+            "description": "Retrieve media files with pagination and filtering"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Media by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Currently returns 404 Not Found - update when implemented",
+                  "pm.test('Status code is 404 (Not Found)', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test('Response has error structure', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('error');",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "});",
+                  "",
+                  "// TODO: Update when get by ID is implemented",
+                  "// pm.test('Returns media metadata', function () {",
+                  "//     pm.response.to.have.status(200);",
+                  "//     const jsonData = pm.response.json();",
+                  "//     pm.expect(jsonData).to.have.property('id');",
+                  "//     pm.expect(jsonData).to.have.property('content_hash');",
+                  "//     pm.expect(jsonData).to.have.property('original_filename');",
+                  "//     pm.expect(jsonData).to.have.property('media_type');",
+                  "//     pm.expect(jsonData).to.have.property('file_size');",
+                  "//     pm.expect(jsonData).to.have.property('processing_status');",
+                  "//     pm.expect(jsonData).to.have.property('uploaded_at');",
+                  "// });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{mediaServiceApiUrl}}/media/{{testMediaId}}",
+              "host": ["{{mediaServiceApiUrl}}"],
+              "path": ["media", "{{testMediaId}}"]
+            },
+            "description": "Retrieve media metadata by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Created Media",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Use the media ID created from upload",
+                  "const mediaId = pm.collectionVariables.get('createdMediaId');",
+                  "if (!mediaId) {",
+                  "    pm.test('Skipped - no created media ID available', function () {",
+                  "        pm.expect(true).to.be.true;",
+                  "    });",
+                  "    return;",
+                  "}",
+                  "",
+                  "// TODO: Update when get by ID is implemented",
+                  "pm.test('Status code is 404 (Not Found)', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{mediaServiceApiUrl}}/media/{{createdMediaId}}",
+              "host": ["{{mediaServiceApiUrl}}"],
+              "path": ["media", "{{createdMediaId}}"]
+            },
+            "description": "Retrieve metadata for a media file created in this session"
+          },
+          "response": []
+        }
+      ],
+      "description": "Media retrieval and listing endpoints"
+    },
+    {
+      "name": "Media Download",
+      "item": [
+        {
+          "name": "Download Media by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Currently returns 501 Not Implemented - update when implemented",
+                  "pm.test('Status code is 501 (Not Implemented)', function () {",
+                  "    pm.response.to.have.status(501);",
+                  "});",
+                  "",
+                  "// TODO: Update when download is implemented",
+                  "// pm.test('Returns file content', function () {",
+                  "//     pm.response.to.have.status(200);",
+                  "//     pm.expect(pm.response.headers.get('Content-Type')).to.include('image/');",
+                  "//     pm.expect(pm.response.headers.get('Content-Length')).to.exist;",
+                  "// });",
+                  "",
+                  "// pm.test('Has correct headers', function () {",
+                  "//     pm.expect(pm.response.headers.get('Content-Disposition')).to.exist;",
+                  "//     pm.expect(pm.response.headers.get('Cache-Control')).to.exist;",
+                  "// });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{mediaServiceApiUrl}}/media/{{testMediaId}}/download",
+              "host": ["{{mediaServiceApiUrl}}"],
+              "path": ["media", "{{testMediaId}}", "download"]
+            },
+            "description": "Download media file content by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Download Created Media",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Use the media ID created from upload",
+                  "const mediaId = pm.collectionVariables.get('createdMediaId');",
+                  "if (!mediaId) {",
+                  "    pm.test('Skipped - no created media ID available', function () {",
+                  "        pm.expect(true).to.be.true;",
+                  "    });",
+                  "    return;",
+                  "}",
+                  "",
+                  "// TODO: Update when download is implemented",
+                  "pm.test('Status code is 501 (Not Implemented)', function () {",
+                  "    pm.response.to.have.status(501);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{mediaServiceApiUrl}}/media/{{createdMediaId}}/download",
+              "host": ["{{mediaServiceApiUrl}}"],
+              "path": ["media", "{{createdMediaId}}", "download"]
+            },
+            "description": "Download a media file created in this session"
+          },
+          "response": []
+        }
+      ],
+      "description": "Media file download endpoints"
+    },
+    {
+      "name": "Error Scenarios",
+      "item": [
+        {
+          "name": "Get Non-existent Media",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test('Response has error structure', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('error');",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{mediaServiceApiUrl}}/media/non-existent-id",
+              "host": ["{{mediaServiceApiUrl}}"],
+              "path": ["media", "non-existent-id"]
+            },
+            "description": "Test 404 error handling for non-existent media"
+          },
+          "response": []
+        },
+        {
+          "name": "Invalid Route",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test('Response has error structure', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('error');",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{mediaServiceApiUrl}}/invalid-route",
+              "host": ["{{mediaServiceApiUrl}}"],
+              "path": ["invalid-route"]
+            },
+            "description": "Test 404 error handling for invalid routes"
+          },
+          "response": []
+        }
+      ],
+      "description": "Error handling and edge case testing"
+    }
+  ]
+}

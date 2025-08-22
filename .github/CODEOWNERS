@@ -1,0 +1,36 @@
+# Global code owners
+# These owners will be the default owners for everything in the repo
+# unless a later match takes precedence.
+* @jsamuelsen
+
+# Rust source code
+/src/ @jsamuelsen
+/Cargo.toml @jsamuelsen
+/Cargo.lock @jsamuelsen
+
+# Infrastructure and deployment
+/.github/ @jsamuelsen
+/Dockerfile @jsamuelsen
+/docker-compose.yml @jsamuelsen
+/.dockerignore @jsamuelsen
+
+# Configuration files
+/.env @jsamuelsen
+/.env.example @jsamuelsen
+/rustfmt.toml @jsamuelsen
+/deny.toml @jsamuelsen
+/.pre-commit-config.yaml @jsamuelsen
+
+# Documentation
+/README.md @jsamuelsen
+/CHANGELOG.md @jsamuelsen
+/CLAUDE.md @jsamuelsen
+/docs/ @jsamuelsen
+
+# Security-sensitive files
+/deny.toml @jsamuelsen
+/.github/workflows/security.yml @jsamuelsen
+/.github/dependency-review-config.yml @jsamuelsen
+
+# VS Code configuration
+/.vscode/ @jsamuelsen

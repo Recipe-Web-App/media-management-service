@@ -1,0 +1,13 @@
+{
+  "recommendations": [
+    "rust-lang.rust-analyzer",
+    "vadimcn.vscode-lldb",
+    "tamasfe.even-better-toml",
+    "usernamehw.errorlens",
+    "ms-azuretools.vscode-docker",
+    "ms-kubernetes-tools.vscode-kubernetes-tools",
+    "mhutchie.git-graph",
+    "redhat.vscode-yaml"
+  ],
+  "unwantedRecommendations": []
+}

@@ -1,0 +1,45 @@
+# yamllint configuration for Rust media management service
+# See: https://yamllint.readthedocs.io/en/stable/configuration.html
+
+extends: default
+
+rules:
+  # Line length - accommodate for longer lines in configs
+  line-length:
+    max: 120
+    level: error
+
+  # Comments - be more lenient with comment formatting
+  comments:
+    min-spaces-from-content: 1
+
+  # Document start - not required for all YAML files
+  document-start:
+    present: false
+
+  # Indentation - enforce consistent 2-space indentation
+  indentation:
+    spaces: 2
+    indent-sequences: true
+    check-multi-line-strings: false
+
+  # Truthy values - allow 'on'/'off' for GitHub Actions
+  truthy:
+    allowed-values: ["true", "false", "on", "off"]
+    check-keys: true
+
+  # Brackets - allow single-line brackets for short arrays
+  brackets:
+    max-spaces-inside: 1
+    min-spaces-inside: 0
+
+  # Key ordering - don't enforce alphabetical ordering
+  key-ordering: disable
+
+# Ignore patterns
+ignore: |
+  # Ignore Kubernetes templates that might have templating syntax
+  tmp/k8s/*template*.yaml
+  # Ignore generated files
+  target/
+  .git/

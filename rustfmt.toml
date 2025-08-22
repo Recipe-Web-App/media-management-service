@@ -1,0 +1,7 @@
+max_width = 100                 # Wrap lines at 100 chars
+hard_tabs = false               # Use spaces, not tabs
+tab_spaces = 4                  # 4 spaces per indent
+use_small_heuristics = "Max"    # Use max heuristics for better formatting
+newline_style = "Unix"          # LF line endings
+reorder_imports = true          # Alphabetize and group imports
+edition = "2021"                # Rust edition
