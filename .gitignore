@@ -28,3 +28,7 @@ node_modules/
 
 # Added by cargo
 /target
+
+# Env files
+.env*
+!.env.example
