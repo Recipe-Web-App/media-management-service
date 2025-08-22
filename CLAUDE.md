@@ -152,10 +152,37 @@ src/
 
 ### Configuration & Environment
 
+- **Runtime Modes** - Local and production modes with automatic detection
 - **Environment-based Configuration** - Dev/staging/production settings
 - **Secret Management** - External secret injection for sensitive data
 - **Feature Flags** - Runtime configuration for gradual feature rollouts
 - **Validation** - Startup-time configuration validation
+
+## Runtime Modes
+
+The service supports two distinct runtime modes for different deployment scenarios:
+
+### Local Mode (Development)
+
+- **Trigger**: Default when no `RUN_MODE` set, or `RUN_MODE=local`
+- **Configuration**: Loads from `.env.local` file + environment variables
+- **Storage**: Relative paths (`./media`, `./media/temp`)
+- **Logging**: Pretty format for readable development output
+- **Use Case**: Local development, testing, debugging
+
+### Production Mode (Deployment)
+
+- **Trigger**: `RUN_MODE=production` or automatic in containerized environments
+- **Configuration**: Environment variables only (no .env file dependency)
+- **Storage**: Absolute container paths (`/app/media`, `/app/media/temp`)
+- **Logging**: JSON format for structured log aggregation
+- **Use Case**: Kubernetes deployment, production servers
+
+### Environment Files
+
+- **`.env.local`** - Local development configuration (copy from `.env.example`)
+- **`.env.prod`** - Production deployment settings (used by deployment scripts)
+- **`.env.example`** - Template with documentation and comments
 
 ### Development Setup
 
@@ -254,14 +281,38 @@ The project uses a comprehensive testing framework with the following structure:
 
 ## Container Deployment
 
+### Quick Start
+
+```bash
+# Deploy to local Minikube
+./scripts/containerManagement/deploy-container.sh
+
+# Check deployment status
+./scripts/containerManagement/get-container-status.sh
+
+# Access the service
+curl http://media-management.local/api/v1/media-management/health
+```
+
+### Container Management Scripts
+
+| Script                    | Purpose                                                       | When to Use                       |
+| ------------------------- | ------------------------------------------------------------- | --------------------------------- |
+| `deploy-container.sh`     | **Full deployment** - Builds image, applies all K8s manifests | Initial deployment, major updates |
+| `start-container.sh`      | **Start service** - Scale deployment to 1 replica             | After stopping, startup           |
+| `stop-container.sh`       | **Stop service** - Scale deployment to 0 replicas             | Maintenance, development pause    |
+| `update-container.sh`     | **Update image** - Rebuild and restart with new code          | Code changes, hot updates         |
+| `cleanup-container.sh`    | **Complete cleanup** - Remove all resources                   | Clean slate, troubleshooting      |
+| `get-container-status.sh` | **Status check** - Comprehensive deployment overview          | Monitoring, debugging             |
+
 ### Environment Configuration
 
-The service is designed for containerized deployment and loads configuration from environment variables:
+The service automatically runs in **Production Mode** when containerized and loads configuration from environment variables:
 
 **Required Environment Variables for Deployment:**
 
 ```bash
-# Database Configuration
+# Database Configuration (Required)
 POSTGRES_HOST=your-postgres-host
 POSTGRES_PORT=5432
 POSTGRES_DB=recipe_database
@@ -269,10 +320,24 @@ POSTGRES_SCHEMA=recipe_manager
 MEDIA_MANAGEMENT_DB_USER=your-db-user
 MEDIA_MANAGEMENT_DB_PASSWORD=your-db-password
 
+# Runtime Mode (Automatic in containers)
+RUN_MODE=production
+
 # Optional: Override defaults if needed
 MEDIA_SERVICE_SERVER_HOST=0.0.0.0
 MEDIA_SERVICE_SERVER_PORT=3000
 MEDIA_SERVICE_STORAGE_BASE_PATH=/app/media
+```
+
+**Configure `.env.prod` for Deployment:**
+
+The deployment scripts use `.env.prod` to substitute values into Kubernetes manifests:
+
+```bash
+# Copy and customize for your environment
+cp .env.example .env.prod
+# Edit with production database settings
+vim .env.prod
 ```
 
 ### Kubernetes Deployment Structure
