@@ -23,6 +23,9 @@ target
 # tmp dir
 tmp/
 
+# Logs
+logs/
+
 # Added by Pre-Commit
 node_modules/
 
