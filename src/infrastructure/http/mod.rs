@@ -112,6 +112,7 @@ mod tests {
 
     fn create_test_config() -> AppConfig {
         AppConfig {
+            mode: crate::infrastructure::config::RuntimeMode::Local,
             server: ServerConfig {
                 host: "127.0.0.1".to_string(),
                 port: 0, // Use port 0 for testing to avoid conflicts
@@ -144,7 +145,8 @@ mod tests {
         let app = create_app(&config, None);
 
         // Test health check endpoint
-        let request = Request::builder().uri("/health").body(Body::empty()).unwrap();
+        let request =
+            Request::builder().uri("/api/v1/media-management/health").body(Body::empty()).unwrap();
 
         let response = app.clone().oneshot(request).await.unwrap();
         assert_eq!(response.status(), StatusCode::OK);
@@ -191,13 +193,15 @@ mod tests {
         let app = create_app(&config, None);
 
         // Test that routes are properly mounted
-        let health_request = Request::builder().uri("/health").body(Body::empty()).unwrap();
+        let health_request =
+            Request::builder().uri("/api/v1/media-management/health").body(Body::empty()).unwrap();
 
         let health_response = app.clone().oneshot(health_request).await.unwrap();
         assert_eq!(health_response.status(), StatusCode::OK);
 
         // Test readiness endpoint
-        let ready_request = Request::builder().uri("/ready").body(Body::empty()).unwrap();
+        let ready_request =
+            Request::builder().uri("/api/v1/media-management/ready").body(Body::empty()).unwrap();
 
         let ready_response = app.clone().oneshot(ready_request).await.unwrap();
         assert_eq!(ready_response.status(), StatusCode::OK);
@@ -228,7 +232,7 @@ mod tests {
         // Test that middleware is properly applied by making a request
         // and checking that it completes successfully
         let request = Request::builder()
-            .uri("/health")
+            .uri("/api/v1/media-management/health")
             .header("Content-Type", "application/json")
             .body(Body::empty())
             .unwrap();
@@ -254,6 +258,7 @@ mod tests {
 
         // Test with a very large value that might overflow
         let large_config = AppConfig {
+            mode: crate::infrastructure::config::RuntimeMode::Local,
             server: ServerConfig {
                 host: "127.0.0.1".to_string(),
                 port: 8080,

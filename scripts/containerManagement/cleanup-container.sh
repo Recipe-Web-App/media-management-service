@@ -38,6 +38,14 @@ print_status() {
 echo "🧹 Cleaning up Media Management Service resources..."
 print_separator "="
 
+# Check if minikube is running
+if ! minikube status >/dev/null 2>&1; then
+    print_status "error" "Minikube is not running. Please start it first with: minikube start"
+    exit 1
+fi
+print_status "ok" "Minikube is running"
+
+print_separator
 echo -e "${CYAN}🛑 Deleting deployment...${NC}"
 kubectl delete deployment media-management-service -n "$NAMESPACE" --ignore-not-found
 print_status "ok" "Deployment deletion completed"

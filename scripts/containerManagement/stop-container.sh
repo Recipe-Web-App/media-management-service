@@ -35,6 +35,14 @@ print_status() {
 echo "🛑 Stopping Media Management Service containers..."
 print_separator "="
 
+# Check if minikube is running
+if ! minikube status >/dev/null 2>&1; then
+    print_status "error" "Minikube is not running. Please start it first with: minikube start"
+    exit 1
+fi
+print_status "ok" "Minikube is running"
+
+print_separator
 echo -e "${CYAN}📉 Scaling deployment to 0 replicas...${NC}"
 kubectl scale deployment media-management-service --replicas=0 -n "$NAMESPACE"
 

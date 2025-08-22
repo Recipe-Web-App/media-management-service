@@ -8,20 +8,29 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Note: In containerized environments, configuration comes from environment variables
-    // No .env file loading needed
-
-    // Initialize logging
-    init_tracing();
-
-    // Load configuration
-    let config = AppConfig::from_env().map_err(|e| {
+    // Load configuration based on runtime mode
+    let config = AppConfig::load().map_err(|e| {
         error!("Failed to load configuration: {}", e);
         e
     })?;
 
+    // Initialize logging with mode-appropriate format
+    init_tracing(&config);
+
     info!("Starting Media Management Service");
+    info!("Runtime mode: {}", config.mode);
     info!("Configuration loaded: server will bind to {}", config.server.socket_addr());
+
+    // Log .env file usage for local mode only
+    if config.mode == media_management_service::infrastructure::config::RuntimeMode::Local {
+        if std::path::Path::new(".env.local").exists() {
+            info!("Local mode: using .env.local file for configuration");
+        } else {
+            info!("Local mode: .env.local file not found, using environment variables only");
+        }
+    } else {
+        info!("Production mode: using environment variables only");
+    }
 
     // Start the HTTP server
     if let Err(e) = start_server(config).await {
@@ -32,15 +41,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// Initialize structured logging
-fn init_tracing() {
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "media_management_service=debug,tower_http=debug".into()),
+/// Initialize structured logging based on configuration
+fn init_tracing(config: &AppConfig) {
+    let env_filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        format!(
+            "media_management_service={},tower_http={}",
+            config.logging.level, config.logging.level
         )
-        .with(tracing_subscriber::fmt::layer().json())
-        .init();
+        .into()
+    });
+
+    let registry = tracing_subscriber::registry().with(env_filter);
+
+    if config.logging.format == "json" {
+        registry.with(tracing_subscriber::fmt::layer().json()).init();
+    } else {
+        registry.with(tracing_subscriber::fmt::layer().pretty()).init();
+    }
 }
 
 #[cfg(test)]

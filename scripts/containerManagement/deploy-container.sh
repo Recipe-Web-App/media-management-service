@@ -98,21 +98,23 @@ else
 fi
 
 print_separator "="
-echo -e "${CYAN}🔧 Loading environment variables from .env file (if present)...${NC}"
+echo -e "${CYAN}🔧 Loading environment variables from .env.prod file (if present)...${NC}"
 print_separator "-"
 
-if [ -f .env ]; then
+if [ -f .env.prod ]; then
     set -o allexport
     BEFORE_ENV=$(mktemp)
     AFTER_ENV=$(mktemp)
     env | cut -d= -f1 | sort > "$BEFORE_ENV"
-    # shellcheck source=.env disable=SC1091
-    source .env
+    # shellcheck source=.env.prod disable=SC1091
+    source .env.prod
     env | cut -d= -f1 | sort > "$AFTER_ENV"
-    print_status "ok" "Loaded variables from .env:"
+    print_status "ok" "Loaded variables from .env.prod:"
     comm -13 "$BEFORE_ENV" "$AFTER_ENV"
     rm -f "$BEFORE_ENV" "$AFTER_ENV"
     set +o allexport
+else
+    print_status "warning" ".env.prod file not found, using existing environment variables"
 fi
 
 print_separator "="

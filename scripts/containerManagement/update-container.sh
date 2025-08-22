@@ -38,6 +38,14 @@ print_status() {
 echo "🔄 Updating Media Management Service container..."
 print_separator "="
 
+# Check if minikube is running
+if ! minikube status >/dev/null 2>&1; then
+    print_status "error" "Minikube is not running. Please start it first with: minikube start"
+    exit 1
+fi
+print_status "ok" "Minikube is running"
+
+print_separator
 echo -e "${CYAN}🦀 Building new Rust Docker image...${NC}"
 eval "$(minikube docker-env)"
 docker build -t "$FULL_IMAGE_NAME" .
