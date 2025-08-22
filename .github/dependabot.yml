@@ -1,0 +1,80 @@
+---
+version: 2
+updates:
+  # Cargo dependencies
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "rust"
+    commit-message:
+      prefix: "deps(cargo)"
+    reviewers:
+      - "@jsamuelsen"
+    ignore:
+      # Ignore major version updates for critical async runtime
+      - dependency-name: "tokio"
+        update-types: ["version-update:semver-major"]
+      # Ignore major version updates for web framework
+      - dependency-name: "axum"
+        update-types: ["version-update:semver-major"]
+      # Ignore major version updates for database toolkit
+      - dependency-name: "sqlx"
+        update-types: ["version-update:semver-major"]
+    groups:
+      tokio-ecosystem:
+        patterns:
+          - "tokio*"
+          - "tower*"
+          - "hyper*"
+      testing-dependencies:
+        patterns:
+          - "rstest"
+          - "mockall"
+          - "claims"
+          - "proptest"
+          - "fake"
+          - "tempfile"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/.github/workflows"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "deps(actions)"
+    reviewers:
+      - "@jsamuelsen"
+
+  # Docker dependencies
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "deps(docker)"
+    reviewers:
+      - "@jsamuelsen"

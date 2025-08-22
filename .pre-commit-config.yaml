@@ -95,6 +95,13 @@ repos:
         stages: [commit-msg]
         args: [--strict, --verbose]
 
+  # Docker linting
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.13.1-beta
+    hooks:
+      - id: hadolint-docker
+        args: ["--ignore", "DL3008", "--ignore", "DL3009", "--ignore", "DL3015"]
+
   # Kubernetes manifests quality checking
   - repo: local
     hooks:

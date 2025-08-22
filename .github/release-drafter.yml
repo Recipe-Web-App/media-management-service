@@ -1,0 +1,77 @@
+---
+# Release Drafter configuration
+# This will be used by semantic-release, but provides fallback configuration
+
+name-template: "v$RESOLVED_VERSION 🎉"
+tag-template: "v$RESOLVED_VERSION"
+template: |
+  ## What's Changed
+
+  $CHANGES
+
+  **Full Changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
+
+categories:
+  - title: "🚀 Features"
+    labels:
+      - "feature"
+      - "enhancement"
+  - title: "🐛 Bug Fixes"
+    labels:
+      - "fix"
+      - "bugfix"
+      - "bug"
+  - title: "🔒 Security"
+    labels:
+      - "security"
+  - title: "📈 Performance"
+    labels:
+      - "performance"
+  - title: "📚 Documentation"
+    labels:
+      - "documentation"
+      - "docs"
+  - title: "🧹 Maintenance"
+    labels:
+      - "chore"
+      - "dependencies"
+      - "maintenance"
+  - title: "🔧 Refactoring"
+    labels:
+      - "refactoring"
+      - "refactor"
+  - title: "🧪 Testing"
+    labels:
+      - "test"
+      - "testing"
+
+change-template: "- $TITLE @$AUTHOR (#$NUMBER)"
+change-title-escapes: '\<*_&' # You can add # and @ to disable mentions, and add ` to disable code blocks.
+
+version-resolver:
+  major:
+    labels:
+      - "major"
+      - "breaking"
+  minor:
+    labels:
+      - "minor"
+      - "feature"
+      - "enhancement"
+  patch:
+    labels:
+      - "patch"
+      - "fix"
+      - "bugfix"
+      - "bug"
+      - "security"
+      - "dependencies"
+      - "documentation"
+      - "chore"
+
+exclude-labels:
+  - "skip-changelog"
+  - "invalid"
+  - "duplicate"
+  - "question"
+  - "wontfix"

@@ -1,0 +1,83 @@
+# Git and version control
+.git/
+.github/
+.gitignore
+
+# Rust build artifacts
+target/
+Cargo.lock
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Environment and configuration
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Documentation (not needed in container)
+README.md
+CHANGELOG.md
+docs/
+
+# Test files
+tests/
+**/*_test.rs
+
+# Development tools
+.pre-commit-config.yaml
+rustfmt.toml
+
+# Docker files (avoid recursive copying)
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# CI/CD files
+.travis.yml
+.circleci/
+.gitlab-ci.yml
+
+# Coverage reports
+coverage/
+*.profraw
+
+# Backup files
+*.bak
+*.backup
+
+# Database files (if any)
+*.db
+*.sqlite
+*.sqlite3
+
+# Media files for testing
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.mp4
+*.avi
+*.mov
