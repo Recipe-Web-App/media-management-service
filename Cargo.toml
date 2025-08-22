@@ -6,7 +6,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 anyhow = "1.0.99"
-async-trait = "0.1.86"
+async-trait = "0.1.89"
 axum = "0.8.4"
 chrono = { version = "0.4.39", features = ["serde"] }
 config = "0.15.14"
