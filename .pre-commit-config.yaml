@@ -108,10 +108,10 @@ repos:
       - id: kube-score
         name: kube-score
         entry: >-
-          sh -c 'find tmp/k8s -name "*.yaml" -type f 2>/dev/null |
+          sh -c 'find k8s -name "*.yaml" -type f 2>/dev/null |
           xargs kube-score score 2>/dev/null || true'
         language: system
-        files: tmp/k8s/.*\.yaml$
+        files: k8s/.*\.yaml$
         pass_filenames: false
         args: []
 

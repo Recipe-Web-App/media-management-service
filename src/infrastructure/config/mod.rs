@@ -70,8 +70,8 @@ impl AppConfig {
             .set_default("database.schema", "recipe_manager")?
             .set_default("database.user", "postgres")?
             .set_default("database.password", "")?
-            .set_default("storage.base_path", "./media")?
-            .set_default("storage.temp_path", "./media/temp")?
+            .set_default("storage.base_path", "/app/media")?
+            .set_default("storage.temp_path", "/app/media/temp")?
             .set_default("storage.max_file_size", 500_000_000)? // 500MB
             .set_default("logging.level", "info")?
             .set_default("logging.format", "json")?

@@ -1,0 +1,56 @@
+---
+# k8s/networkpolicy.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: media-management-network-policy
+  namespace: media-management
+  labels:
+    app: media-management-service
+spec:
+  podSelector:
+    matchLabels:
+      app: media-management-service
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow ingress from ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 3000
+    # Allow ingress from other services in the same namespace
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: media-management
+      ports:
+        - protocol: TCP
+          port: 3000
+  egress:
+    # Allow egress to DNS
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow egress to PostgreSQL (assuming it's in recipe-manager namespace)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: recipe-manager
+      ports:
+        - protocol: TCP
+          port: 5432
+    # Allow egress to external services (for health checks, etc.)
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443

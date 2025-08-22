@@ -10,6 +10,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `cargo run` - Build and run the application
 - `cargo build --release` - Build optimized release version
 
+### Deployment & Containers
+
+#### Local Kubernetes Deployment
+
+- `./scripts/containerManagement/deploy-container.sh` - Full deployment to local Minikube
+- `./scripts/containerManagement/start-container.sh` - Start existing containers
+- `./scripts/containerManagement/stop-container.sh` - Stop running containers
+- `./scripts/containerManagement/update-container.sh` - Rebuild and update containers
+- `./scripts/containerManagement/cleanup-container.sh` - Clean up all resources
+- `./scripts/containerManagement/get-container-status.sh` - Check deployment status
+
+#### Docker Commands
+
+- `docker build -t media-management-service:latest .` - Build container image
+- `eval "$(minikube docker-env)" && docker build -t media-management-service:latest .` - Build for Minikube
+
+#### Kubernetes Access
+
+- **Service URL**: `http://media-management.local/api/v1/media-management/`
+- **Health Check**: `http://media-management.local/api/v1/media-management/health`
+- **Readiness Check**: `http://media-management.local/api/v1/media-management/ready`
+
 ### Testing & Quality
 
 - `cargo test` - Run all tests (unit and integration)
@@ -230,6 +252,56 @@ The project uses a comprehensive testing framework with the following structure:
 - Write property-based tests for value objects to catch edge cases
 - Mock external dependencies using `mockall` traits
 
+## Container Deployment
+
+### Environment Configuration
+
+The service is designed for containerized deployment and loads configuration from environment variables:
+
+**Required Environment Variables for Deployment:**
+
+```bash
+# Database Configuration
+POSTGRES_HOST=your-postgres-host
+POSTGRES_PORT=5432
+POSTGRES_DB=recipe_database
+POSTGRES_SCHEMA=recipe_manager
+MEDIA_MANAGEMENT_DB_USER=your-db-user
+MEDIA_MANAGEMENT_DB_PASSWORD=your-db-password
+
+# Optional: Override defaults if needed
+MEDIA_SERVICE_SERVER_HOST=0.0.0.0
+MEDIA_SERVICE_SERVER_PORT=3000
+MEDIA_SERVICE_STORAGE_BASE_PATH=/app/media
+```
+
+### Kubernetes Deployment Structure
+
+```text
+k8s/
+├── configmap-template.yaml    # Non-sensitive configuration
+├── secret-template.yaml      # Database password only
+├── deployment.yaml           # Main service deployment
+├── service.yaml             # ClusterIP service
+├── ingress.yaml             # External access routing
+├── networkpolicy.yaml       # Network security rules
+└── poddisruptionbudget.yaml # High availability
+```
+
+### Security Features
+
+- **Non-root container**: Runs as user `media` (UID 10001)
+- **Read-only root filesystem**: Enhanced security posture
+- **Network policies**: Restricts pod-to-pod communication
+- **Resource limits**: Prevents resource exhaustion
+- **Health checks**: Kubernetes liveness and readiness probes
+
+### Storage Strategy
+
+- **Persistent storage**: Uses Kubernetes volumes for media files
+- **Content-addressable**: Hash-based file organization
+- **Multi-tier support**: Hot/warm/cold storage patterns
+
 ### Future Considerations
 
 This media management service is part of a larger recipe web application ecosystem. The clean
@@ -239,3 +311,4 @@ architecture allows for:
 - Plugin-based storage backends (filesystem, S3, etc.)
 - Horizontal scaling through stateless design
 - Integration with other recipe app services through well-defined APIs
+- Multi-environment deployment (dev/staging/production)

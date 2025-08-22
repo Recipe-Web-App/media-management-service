@@ -8,8 +8,8 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Load environment variables from .env file
-    dotenvy::dotenv().ok();
+    // Note: In containerized environments, configuration comes from environment variables
+    // No .env file loading needed
 
     // Initialize logging
     init_tracing();

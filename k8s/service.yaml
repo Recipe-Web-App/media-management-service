@@ -1,0 +1,16 @@
+---
+# k8s/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: media-management-service
+  namespace: media-management
+  labels:
+    app: media-management-service
+spec:
+  selector:
+    app: media-management-service
+  ports:
+    - port: 3000
+      targetPort: 3000
+  type: ClusterIP
