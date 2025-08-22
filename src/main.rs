@@ -155,8 +155,14 @@ fn init_tracing(config: &AppConfig) -> Result<(), Box<dyn std::error::Error>> {
                 RotationPolicy::Never => {
                     rolling::never(&config.logging.file_path, &config.logging.file_prefix)
                 }
-                RotationPolicy::Daily | RotationPolicy::Size(_) => {
+                RotationPolicy::Daily => {
                     rolling::daily(&config.logging.file_path, &config.logging.file_prefix)
+                }
+                RotationPolicy::Size(mb) => {
+                    return Err(format!(
+                        "Size-based log rotation ({} MB) is not supported by this application.",
+                        mb
+                    ).into());
                 }
             };
 
