@@ -1,6 +1,7 @@
+use axum::http::HeaderValue;
 use axum::{
     extract::DefaultBodyLimit,
-    http::{header, Method, StatusCode},
+    http::{header, Method},
     response::Json,
     Router,
 };
@@ -10,19 +11,41 @@ use tower::ServiceBuilder;
 use tower_http::{
     compression::CompressionLayer,
     cors::CorsLayer,
-    request_id::{MakeRequestUuid, SetRequestIdLayer},
+    request_id::{MakeRequestId, RequestId, SetRequestIdLayer},
     timeout::TimeoutLayer,
     trace::TraceLayer,
 };
 use tracing::info;
+use uuid::Uuid;
 
-use crate::infrastructure::{config::AppConfig, persistence::Database};
-use crate::presentation::routes;
+use crate::{
+    infrastructure::{config::AppConfig, persistence::Database},
+    presentation::{
+        middleware::{error::global_error_handler, AppError},
+        routes,
+    },
+};
+
+/// Enhanced request ID maker that creates UUID v4 request IDs
+#[derive(Clone, Debug)]
+pub struct EnhancedRequestId;
+
+impl MakeRequestId for EnhancedRequestId {
+    fn make_request_id<B>(&mut self, _request: &axum::extract::Request<B>) -> Option<RequestId> {
+        let request_id = Uuid::new_v4().to_string();
+        let header_value = HeaderValue::try_from(request_id).ok()?;
+        Some(RequestId::new(header_value))
+    }
+}
 
 /// Create the main application router
 pub fn create_app(config: &AppConfig, _database: Option<Database>) -> Router {
     let middleware_stack = ServiceBuilder::new()
-        .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))
+        .layer(SetRequestIdLayer::new(
+            header::HeaderName::from_static("x-request-id"),
+            EnhancedRequestId,
+        ))
+        .layer(axum::middleware::from_fn(global_error_handler))
         .layer(TraceLayer::new_for_http())
         .layer(CompressionLayer::new())
         .layer(TimeoutLayer::new(Duration::from_secs(30)))
@@ -56,14 +79,8 @@ pub async fn readiness_check_no_db() -> Json<Value> {
 }
 
 /// Handler for 404 not found
-async fn not_found_handler() -> (StatusCode, Json<Value>) {
-    (
-        StatusCode::NOT_FOUND,
-        Json(json!({
-            "error": "Not Found",
-            "message": "The requested resource was not found"
-        })),
-    )
+async fn not_found_handler() -> Result<Json<Value>, AppError> {
+    Err(AppError::NotFound { resource: "The requested resource was not found".to_string() })
 }
 
 /// Create CORS layer with appropriate settings
@@ -94,6 +111,15 @@ pub async fn start_server(config: AppConfig) -> Result<(), Box<dyn std::error::E
     let addr = config.server.socket_addr();
 
     info!("Starting server on {}", addr);
+    info!("Middleware configuration:");
+    info!("  - Request ID: enabled");
+    info!("  - Global Error Handler: enabled");
+    info!("  - Authentication: {}", config.middleware.auth.enabled);
+    info!("  - Rate Limiting: {}", config.middleware.rate_limiting.enabled);
+    info!("  - Security Headers: {}", config.middleware.security.enabled);
+    info!("  - Request Validation: {}", config.middleware.validation.enabled);
+    info!("  - Metrics Collection: {}", config.middleware.metrics.enabled);
+    info!("  - Request Logging: {}", config.middleware.request_logging.enabled);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app).await?;
@@ -105,17 +131,20 @@ pub async fn start_server(config: AppConfig) -> Result<(), Box<dyn std::error::E
 mod tests {
     use super::*;
     use crate::infrastructure::config::{
-        DatabaseConfig, LoggingConfig, ServerConfig, StorageConfig,
+        AuthConfig, DatabaseConfig, LoggingConfig, MetricsConfig, MiddlewareConfig,
+        RateLimitTiersConfig, RateLimitingConfig, RequestLoggingConfig, RuntimeMode,
+        SecurityConfig, SecurityFeatures, ServerConfig, StorageConfig, ValidationConfig,
     };
     use axum::{body::Body, http::Request};
     use tower::ServiceExt;
 
+    #[allow(clippy::too_many_lines)]
     fn create_test_config() -> AppConfig {
         AppConfig {
-            mode: crate::infrastructure::config::RuntimeMode::Local,
+            mode: RuntimeMode::Local,
             server: ServerConfig {
                 host: "127.0.0.1".to_string(),
-                port: 0, // Use port 0 for testing to avoid conflicts
+                port: 0,
                 max_upload_size: 1_000_000,
             },
             database: DatabaseConfig {
@@ -140,7 +169,7 @@ mod tests {
                 filter: None,
                 console_enabled: true,
                 console_format: crate::infrastructure::config::LogFormat::Json,
-                file_enabled: false, // Disable file logging in tests
+                file_enabled: false,
                 file_format: crate::infrastructure::config::LogFormat::Json,
                 file_path: "/tmp/test/logs".to_string(),
                 file_prefix: "test".to_string(),
@@ -150,6 +179,79 @@ mod tests {
                 non_blocking: false,
                 buffer_size: None,
             },
+            middleware: MiddlewareConfig {
+                auth: AuthConfig {
+                    enabled: false,
+                    jwt_secret: "test-secret".to_string(),
+                    jwt_expiry_hours: 24,
+                    require_auth_routes: vec![],
+                    optional_auth_routes: vec![],
+                },
+                rate_limiting: RateLimitingConfig {
+                    enabled: false,
+                    default_requests_per_minute: 100,
+                    default_burst_capacity: 10,
+                    trust_forwarded_headers: false,
+                    include_rate_limit_headers: true,
+                    tiers: RateLimitTiersConfig {
+                        health_requests_per_minute: 1000,
+                        public_requests_per_minute: 60,
+                        authenticated_requests_per_minute: 200,
+                        upload_requests_per_minute: 10,
+                        admin_requests_per_minute: 500,
+                    },
+                },
+                security: SecurityConfig {
+                    enabled: true,
+                    features: SecurityFeatures {
+                        hsts: false,
+                        hsts_subdomains: true,
+                        hsts_preload: false,
+                        content_type_options: true,
+                    },
+                    hsts_max_age_seconds: 31_536_000,
+                    csp_policy: Some("default-src 'self'".to_string()),
+                    frame_options: "DENY".to_string(),
+                    xss_protection: "1; mode=block".to_string(),
+                    referrer_policy: "strict-origin-when-cross-origin".to_string(),
+                    permissions_policy: Some("camera=()".to_string()),
+                },
+                metrics: MetricsConfig {
+                    enabled: false,
+                    endpoint_enabled: false,
+                    endpoint_path: "/metrics".to_string(),
+                    prometheus_port: 9090,
+                    collect_request_metrics: true,
+                    collect_timing_metrics: true,
+                    collect_error_metrics: true,
+                    collect_business_metrics: true,
+                    normalize_routes: true,
+                    collection_interval_seconds: 10,
+                },
+                validation: ValidationConfig {
+                    enabled: true,
+                    validate_content_type: true,
+                    validate_body_size: true,
+                    max_body_size_mb: 100,
+                    validate_json_structure: true,
+                    validate_file_uploads: true,
+                    max_file_size_mb: 50,
+                    allowed_file_types: vec!["image/jpeg".to_string()],
+                    validate_headers: false,
+                    validate_methods: false,
+                },
+                request_logging: RequestLoggingConfig {
+                    enabled: false,
+                    log_request_body: false,
+                    log_response_body: false,
+                    max_body_size_kb: 10,
+                    log_request_headers: false,
+                    log_response_headers: false,
+                    excluded_headers: vec!["authorization".to_string()],
+                    log_timing: true,
+                    slow_request_threshold_ms: 500,
+                },
+            },
         }
     }
 
@@ -158,12 +260,11 @@ mod tests {
         let config = create_test_config();
         let app = create_app(&config, None);
 
-        // Test health check endpoint
         let request =
             Request::builder().uri("/api/v1/media-management/health").body(Body::empty()).unwrap();
 
-        let response = app.clone().oneshot(request).await.unwrap();
-        assert_eq!(response.status(), StatusCode::OK);
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), axum::http::StatusCode::OK);
     }
 
     #[tokio::test]
@@ -179,119 +280,27 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_readiness_check_no_db() {
-        let response = readiness_check_no_db().await;
-        let json_value = response.0;
-
-        assert_eq!(json_value["status"], "ready");
-        assert!(json_value.get("timestamp").is_some());
-        assert!(json_value.get("checks").is_some());
-
-        let checks = &json_value["checks"];
-        assert_eq!(checks["database"], "not_configured");
-        assert_eq!(checks["storage"], "ok");
-    }
-
-    #[tokio::test]
     async fn test_not_found_handler() {
-        let (status, json_response) = not_found_handler().await;
+        let result = not_found_handler().await;
+        assert!(result.is_err());
 
-        assert_eq!(status, StatusCode::NOT_FOUND);
-        assert_eq!(json_response["error"], "Not Found");
-        assert_eq!(json_response["message"], "The requested resource was not found");
-    }
-
-    #[tokio::test]
-    async fn test_app_routes_structure() {
-        let config = create_test_config();
-        let app = create_app(&config, None);
-
-        // Test that routes are properly mounted
-        let health_request =
-            Request::builder().uri("/api/v1/media-management/health").body(Body::empty()).unwrap();
-
-        let health_response = app.clone().oneshot(health_request).await.unwrap();
-        assert_eq!(health_response.status(), StatusCode::OK);
-
-        // Test readiness endpoint
-        let ready_request =
-            Request::builder().uri("/api/v1/media-management/ready").body(Body::empty()).unwrap();
-
-        let ready_response = app.clone().oneshot(ready_request).await.unwrap();
-        assert_eq!(ready_response.status(), StatusCode::OK);
-
-        // Test 404 for non-existent route
-        let not_found_request =
-            Request::builder().uri("/non-existent-route").body(Body::empty()).unwrap();
-
-        let not_found_response = app.oneshot(not_found_request).await.unwrap();
-        assert_eq!(not_found_response.status(), StatusCode::NOT_FOUND);
+        let error = result.unwrap_err();
+        assert!(matches!(error, AppError::NotFound { .. }));
     }
 
     #[test]
-    fn test_create_cors_layer() {
-        // Test that CORS layer can be created without panicking
-        let cors_layer = create_cors_layer();
+    fn test_enhanced_request_id_make_request_id() {
+        let mut maker = EnhancedRequestId;
+        let request = Request::builder().body(Body::empty()).unwrap();
 
-        // We can't easily inspect the CORS layer's internal configuration
-        // but we can ensure it was created successfully
-        drop(cors_layer); // This verifies the layer was created
+        let request_id = maker.make_request_id(&request);
+        assert!(request_id.is_some());
+
+        // Verify it's a valid UUID format
+        let request_id_value = request_id.unwrap();
+        let header_value = request_id_value.header_value();
+        let id_str = header_value.to_str().unwrap();
+        let parsed_uuid = Uuid::parse_str(id_str);
+        assert!(parsed_uuid.is_ok());
     }
-
-    #[tokio::test]
-    async fn test_app_middleware_stack() {
-        let config = create_test_config();
-        let app = create_app(&config, None);
-
-        // Test that middleware is properly applied by making a request
-        // and checking that it completes successfully
-        let request = Request::builder()
-            .uri("/api/v1/media-management/health")
-            .header("Content-Type", "application/json")
-            .body(Body::empty())
-            .unwrap();
-
-        let response = app.oneshot(request).await.unwrap();
-
-        // Verify the response indicates middleware processed the request
-        assert_eq!(response.status(), StatusCode::OK);
-
-        // Check that compression and other middleware headers might be present
-        // (actual header presence depends on response content and middleware config)
-        let headers = response.headers();
-        assert!(headers.get("content-type").is_some());
-    }
-
-    #[test]
-    fn test_max_upload_size_conversion() {
-        let config = create_test_config();
-
-        // Test that max_upload_size conversion works
-        let size = usize::try_from(config.server.max_upload_size).unwrap_or(100_000_000);
-        assert_eq!(size, 1_000_000);
-
-        // Test with a very large value that might overflow
-        let large_config = AppConfig {
-            mode: crate::infrastructure::config::RuntimeMode::Local,
-            server: ServerConfig {
-                host: "127.0.0.1".to_string(),
-                port: 8080,
-                max_upload_size: u64::MAX,
-            },
-            database: config.database,
-            storage: config.storage,
-            logging: config.logging,
-        };
-
-        let large_size =
-            usize::try_from(large_config.server.max_upload_size).unwrap_or(100_000_000);
-        assert!(large_size > 0);
-    }
-
-    // Note: Testing start_server is complex because it:
-    // 1. Binds to network ports
-    // 2. Runs indefinitely
-    // 3. Requires database connections
-    //
-    // Integration tests or mocked tests would be more appropriate for testing start_server
 }

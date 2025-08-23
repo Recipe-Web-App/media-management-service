@@ -87,8 +87,7 @@ fn init_tracing(config: &AppConfig) -> Result<(), Box<dyn std::error::Error>> {
                 }
                 RotationPolicy::Size(mb) => {
                     return Err(format!(
-                        "Size-based log rotation ({} MB) is not supported. Please use 'Daily', 'Hourly', or 'Never'.",
-                        mb
+                        "Size-based log rotation ({mb} MB) is not supported. Please use 'Daily', 'Hourly', or 'Never'."
                     ).into());
                 }
             };
@@ -160,9 +159,9 @@ fn init_tracing(config: &AppConfig) -> Result<(), Box<dyn std::error::Error>> {
                 }
                 RotationPolicy::Size(mb) => {
                     return Err(format!(
-                        "Size-based log rotation ({} MB) is not supported by this application.",
-                        mb
-                    ).into());
+                        "Size-based log rotation ({mb} MB) is not supported by this application."
+                    )
+                    .into());
                 }
             };
 
