@@ -1,6 +1,13 @@
 #![deny(clippy::all)]
 #![deny(clippy::pedantic)]
 #![deny(warnings)]
+// Allow some overly strict pedantic lints for middleware code
+#![allow(clippy::must_use_candidate)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::cast_possible_wrap)]
+#![allow(clippy::cast_precision_loss)]
+#![allow(clippy::missing_errors_doc)]
 
 //! Media Management Service
 //!

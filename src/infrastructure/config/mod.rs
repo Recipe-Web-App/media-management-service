@@ -38,6 +38,7 @@ pub struct AppConfig {
     pub database: DatabaseConfig,
     pub storage: StorageConfig,
     pub logging: LoggingConfig,
+    pub middleware: MiddlewareConfig,
 }
 
 /// HTTP server configuration
@@ -116,6 +117,119 @@ pub enum RotationPolicy {
     Never,
 }
 
+/// Middleware configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiddlewareConfig {
+    pub auth: AuthConfig,
+    pub rate_limiting: RateLimitingConfig,
+    pub security: SecurityConfig,
+    pub metrics: MetricsConfig,
+    pub validation: ValidationConfig,
+    pub request_logging: RequestLoggingConfig,
+}
+
+/// Authentication middleware configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthConfig {
+    pub enabled: bool,
+    pub jwt_secret: String,
+    pub jwt_expiry_hours: u64,
+    pub require_auth_routes: Vec<String>,
+    pub optional_auth_routes: Vec<String>,
+}
+
+/// Rate limiting configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RateLimitingConfig {
+    pub enabled: bool,
+    pub default_requests_per_minute: u32,
+    pub default_burst_capacity: u32,
+    pub trust_forwarded_headers: bool,
+    pub include_rate_limit_headers: bool,
+    pub tiers: RateLimitTiersConfig,
+}
+
+/// Rate limit tiers configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RateLimitTiersConfig {
+    pub health_requests_per_minute: u32,
+    pub public_requests_per_minute: u32,
+    pub authenticated_requests_per_minute: u32,
+    pub upload_requests_per_minute: u32,
+    pub admin_requests_per_minute: u32,
+}
+
+/// Security features flags
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct SecurityFeatures {
+    pub hsts: bool,
+    pub hsts_subdomains: bool,
+    pub hsts_preload: bool,
+    pub content_type_options: bool,
+}
+
+/// Security headers configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct SecurityConfig {
+    pub enabled: bool,
+    pub features: SecurityFeatures,
+    pub hsts_max_age_seconds: u64,
+    pub csp_policy: Option<String>,
+    pub frame_options: String,  // "DENY", "SAMEORIGIN", "ALLOW-FROM uri"
+    pub xss_protection: String, // "0", "1", "1; mode=block"
+    pub referrer_policy: String,
+    pub permissions_policy: Option<String>,
+}
+
+/// Metrics collection configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct MetricsConfig {
+    pub enabled: bool,
+    pub endpoint_enabled: bool,
+    pub endpoint_path: String,
+    pub prometheus_port: u16,
+    pub collect_request_metrics: bool,
+    pub collect_timing_metrics: bool,
+    pub collect_error_metrics: bool,
+    pub collect_business_metrics: bool,
+    pub normalize_routes: bool,
+    pub collection_interval_seconds: u64,
+}
+
+/// Request validation configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct ValidationConfig {
+    pub enabled: bool,
+    pub validate_content_type: bool,
+    pub validate_body_size: bool,
+    pub max_body_size_mb: u64,
+    pub validate_json_structure: bool,
+    pub validate_file_uploads: bool,
+    pub max_file_size_mb: u64,
+    pub allowed_file_types: Vec<String>,
+    pub validate_headers: bool,
+    pub validate_methods: bool,
+}
+
+/// Request/response logging configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct RequestLoggingConfig {
+    pub enabled: bool,
+    pub log_request_body: bool,
+    pub log_response_body: bool,
+    pub max_body_size_kb: u64,
+    pub log_request_headers: bool,
+    pub log_response_headers: bool,
+    pub excluded_headers: Vec<String>,
+    pub log_timing: bool,
+    pub slow_request_threshold_ms: u64,
+}
+
 impl AppConfig {
     /// Load configuration based on runtime mode
     ///
@@ -135,6 +249,7 @@ impl AppConfig {
     ///
     /// # Errors
     /// Returns an error if required environment variables are missing or invalid
+    #[allow(clippy::too_many_lines)]
     pub fn load_for_mode(mode: RuntimeMode) -> Result<Self, config::ConfigError> {
         let mut builder = config::Config::builder();
 
@@ -189,6 +304,62 @@ impl AppConfig {
             .set_default("logging.file_max_size_mb", None::<u64>)?
             .set_default("logging.non_blocking", true)?
             .set_default("logging.buffer_size", 8192_i64)?
+            // Middleware configuration defaults
+            .set_default("middleware.auth.enabled", true)?
+            .set_default("middleware.auth.jwt_secret", "change-me-in-production")?
+            .set_default("middleware.auth.jwt_expiry_hours", 24)?
+            .set_default("middleware.auth.require_auth_routes", Vec::<String>::new())?
+            .set_default("middleware.auth.optional_auth_routes", Vec::<String>::new())?
+            .set_default("middleware.rate_limiting.enabled", true)?
+            .set_default("middleware.rate_limiting.default_requests_per_minute", 100)?
+            .set_default("middleware.rate_limiting.default_burst_capacity", 10)?
+            .set_default("middleware.rate_limiting.trust_forwarded_headers", false)?
+            .set_default("middleware.rate_limiting.include_rate_limit_headers", true)?
+            .set_default("middleware.rate_limiting.tiers.health_requests_per_minute", 1000)?
+            .set_default("middleware.rate_limiting.tiers.public_requests_per_minute", 60)?
+            .set_default("middleware.rate_limiting.tiers.authenticated_requests_per_minute", 200)?
+            .set_default("middleware.rate_limiting.tiers.upload_requests_per_minute", 10)?
+            .set_default("middleware.rate_limiting.tiers.admin_requests_per_minute", 500)?
+            .set_default("middleware.security.enabled", true)?
+            .set_default("middleware.security.features.hsts", mode == RuntimeMode::Production)?
+            .set_default("middleware.security.hsts_max_age_seconds", 31_536_000)? // 1 year
+            .set_default("middleware.security.features.hsts_subdomains", true)?
+            .set_default("middleware.security.features.hsts_preload", false)?
+            .set_default("middleware.security.csp_policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self'; media-src 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; base-uri 'self'")?
+            .set_default("middleware.security.frame_options", "DENY")?
+            .set_default("middleware.security.features.content_type_options", true)?
+            .set_default("middleware.security.xss_protection", "1; mode=block")?
+            .set_default("middleware.security.referrer_policy", "strict-origin-when-cross-origin")?
+            .set_default("middleware.security.permissions_policy", "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()")?
+            .set_default("middleware.metrics.enabled", true)?
+            .set_default("middleware.metrics.endpoint_enabled", true)?
+            .set_default("middleware.metrics.endpoint_path", "/metrics")?
+            .set_default("middleware.metrics.prometheus_port", 9090)?
+            .set_default("middleware.metrics.collect_request_metrics", true)?
+            .set_default("middleware.metrics.collect_timing_metrics", true)?
+            .set_default("middleware.metrics.collect_error_metrics", true)?
+            .set_default("middleware.metrics.collect_business_metrics", true)?
+            .set_default("middleware.metrics.normalize_routes", true)?
+            .set_default("middleware.metrics.collection_interval_seconds", 10)?
+            .set_default("middleware.validation.enabled", true)?
+            .set_default("middleware.validation.validate_content_type", true)?
+            .set_default("middleware.validation.validate_body_size", true)?
+            .set_default("middleware.validation.max_body_size_mb", 100)?
+            .set_default("middleware.validation.validate_json_structure", true)?
+            .set_default("middleware.validation.validate_file_uploads", true)?
+            .set_default("middleware.validation.max_file_size_mb", 50)?
+            .set_default("middleware.validation.allowed_file_types", vec!["image/jpeg", "image/png", "image/webp", "image/avif", "video/mp4", "video/webm"])?
+            .set_default("middleware.validation.validate_headers", true)?
+            .set_default("middleware.validation.validate_methods", true)?
+            .set_default("middleware.request_logging.enabled", mode == RuntimeMode::Local)?
+            .set_default("middleware.request_logging.log_request_body", mode == RuntimeMode::Local)?
+            .set_default("middleware.request_logging.log_response_body", mode == RuntimeMode::Local)?
+            .set_default("middleware.request_logging.max_body_size_kb", if mode == RuntimeMode::Local { 10 } else { 1 })?
+            .set_default("middleware.request_logging.log_request_headers", mode == RuntimeMode::Local)?
+            .set_default("middleware.request_logging.log_response_headers", false)?
+            .set_default("middleware.request_logging.excluded_headers", vec!["authorization", "cookie", "set-cookie", "x-api-key", "x-auth-token"])?
+            .set_default("middleware.request_logging.log_timing", true)?
+            .set_default("middleware.request_logging.slow_request_threshold_ms", if mode == RuntimeMode::Local { 500 } else { 2000 })?
             .build()?;
 
         settings.try_deserialize()
@@ -281,6 +452,82 @@ mod tests {
         }
     }
 
+    fn create_test_middleware_config() -> MiddlewareConfig {
+        MiddlewareConfig {
+            auth: AuthConfig {
+                enabled: true,
+                jwt_secret: "test-secret-key".to_string(),
+                jwt_expiry_hours: 24,
+                require_auth_routes: vec!["/api/v1/media-management/media".to_string()],
+                optional_auth_routes: vec![],
+            },
+            rate_limiting: RateLimitingConfig {
+                enabled: true,
+                default_requests_per_minute: 100,
+                default_burst_capacity: 10,
+                trust_forwarded_headers: false,
+                include_rate_limit_headers: true,
+                tiers: RateLimitTiersConfig {
+                    health_requests_per_minute: 1000,
+                    public_requests_per_minute: 60,
+                    authenticated_requests_per_minute: 200,
+                    upload_requests_per_minute: 10,
+                    admin_requests_per_minute: 500,
+                },
+            },
+            security: SecurityConfig {
+                enabled: true,
+                features: SecurityFeatures {
+                    hsts: false,
+                    hsts_subdomains: true,
+                    hsts_preload: false,
+                    content_type_options: true,
+                },
+                hsts_max_age_seconds: 31_536_000,
+                csp_policy: Some("default-src 'self'".to_string()),
+                frame_options: "DENY".to_string(),
+                xss_protection: "1; mode=block".to_string(),
+                referrer_policy: "strict-origin-when-cross-origin".to_string(),
+                permissions_policy: Some("camera=(), microphone=()".to_string()),
+            },
+            metrics: MetricsConfig {
+                enabled: true,
+                endpoint_enabled: true,
+                endpoint_path: "/metrics".to_string(),
+                prometheus_port: 9090,
+                collect_request_metrics: true,
+                collect_timing_metrics: true,
+                collect_error_metrics: true,
+                collect_business_metrics: true,
+                normalize_routes: true,
+                collection_interval_seconds: 10,
+            },
+            validation: ValidationConfig {
+                enabled: true,
+                validate_content_type: true,
+                validate_body_size: true,
+                max_body_size_mb: 100,
+                validate_json_structure: true,
+                validate_file_uploads: true,
+                max_file_size_mb: 50,
+                allowed_file_types: vec!["image/jpeg".to_string(), "image/png".to_string()],
+                validate_headers: true,
+                validate_methods: true,
+            },
+            request_logging: RequestLoggingConfig {
+                enabled: true,
+                log_request_body: true,
+                log_response_body: false,
+                max_body_size_kb: 10,
+                log_request_headers: true,
+                log_response_headers: false,
+                excluded_headers: vec!["authorization".to_string(), "cookie".to_string()],
+                log_timing: true,
+                slow_request_threshold_ms: 500,
+            },
+        }
+    }
+
     #[test]
     fn test_server_config_socket_addr() {
         let config = create_test_server_config();
@@ -337,6 +584,7 @@ mod tests {
             database: create_test_database_config(),
             storage: create_test_storage_config(),
             logging: create_test_logging_config(),
+            middleware: create_test_middleware_config(),
         };
 
         let json = serde_json::to_string(&config).unwrap();
