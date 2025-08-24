@@ -1,6 +1,6 @@
 {
+  "rust-analyzer.checkOnSave": true,
   "rust-analyzer.checkOnSave.command": "clippy",
-  "rust-analyzer.checkOnSave.extraArgs": ["--all-targets", "--all-features"],
   "rust-analyzer.diagnostics.experimental.enable": true,
   "rust-analyzer.diagnostics.disabled": [],
   "rust-analyzer.procMacro.enable": true,
@@ -11,7 +11,7 @@
   "rust-analyzer.inlayHints.typeHints.enable": true,
   "rust-analyzer.inlayHints.parameterHints.enable": true,
   "rust-analyzer.inlayHints.chainingHints.enable": true,
-  "editor.formatOnSave": true,
+  "editor.formatOnSave": false,
   "editor.formatOnType": true,
   "rust-analyzer.rustfmt.extraArgs": ["--edition", "2021"],
   "rust-analyzer.rustfmt.overrideCommand": ["cargo", "fmt", "--all"],

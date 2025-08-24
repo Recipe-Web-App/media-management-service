@@ -1,4 +1,4 @@
-use crate::infrastructure::config::DatabaseConfig;
+use crate::infrastructure::config::PostgresConfig;
 use anyhow::Result;
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use std::time::Duration;
@@ -15,7 +15,7 @@ impl Database {
     ///
     /// # Errors
     /// Returns an error if the database connection fails
-    pub async fn new(config: &DatabaseConfig) -> Result<Self> {
+    pub async fn new(config: &PostgresConfig) -> Result<Self> {
         let connection_url = config.connection_url();
 
         info!("Connecting to PostgreSQL database at {}:{}", config.host, config.port);
@@ -72,8 +72,8 @@ mod tests {
     use super::*;
     use std::time::Duration;
 
-    fn create_test_database_config() -> DatabaseConfig {
-        DatabaseConfig {
+    fn create_test_postgres_config() -> PostgresConfig {
+        PostgresConfig {
             url: "postgres://test:test@localhost:5432/test_db".to_string(),
             max_connections: 5,
             min_connections: 1,
@@ -88,14 +88,14 @@ mod tests {
     }
 
     #[test]
-    fn test_database_config_connection_url() {
-        let config = create_test_database_config();
+    fn test_postgres_config_connection_url() {
+        let config = create_test_postgres_config();
         assert_eq!(config.connection_url(), "postgres://test:test@localhost:5432/test_db");
     }
 
     #[test]
-    fn test_database_config_with_empty_url() {
-        let mut config = create_test_database_config();
+    fn test_postgres_config_with_empty_url() {
+        let mut config = create_test_postgres_config();
         config.url = String::new();
 
         let expected_url = format!(
@@ -111,7 +111,7 @@ mod tests {
     #[tokio::test]
     #[ignore = "Requires a real database connection"]
     async fn test_database_new_with_real_connection() {
-        let config = create_test_database_config();
+        let config = create_test_postgres_config();
 
         // This test requires a running PostgreSQL instance
         // It's marked with #[ignore] to prevent it from running in CI
@@ -132,7 +132,7 @@ mod tests {
     #[tokio::test]
     #[ignore = "Requires a real database connection"]
     async fn test_database_health_check() {
-        let config = create_test_database_config();
+        let config = create_test_postgres_config();
 
         match Database::new(&config).await {
             Ok(db) => {
@@ -150,7 +150,7 @@ mod tests {
     #[test]
     fn test_database_clone() {
         // Test that Database implements Clone
-        let config = create_test_database_config();
+        let config = create_test_postgres_config();
 
         // We can't easily test the actual cloning without a real database connection
         // but we can test that the clone trait is implemented by checking the config
@@ -163,7 +163,7 @@ mod tests {
 
     #[test]
     fn test_database_configuration_validation() {
-        let config = create_test_database_config();
+        let config = create_test_postgres_config();
 
         // Test configuration values are reasonable
         assert!(config.max_connections > 0);
@@ -175,7 +175,7 @@ mod tests {
 
     #[test]
     fn test_duration_conversion() {
-        let config = create_test_database_config();
+        let config = create_test_postgres_config();
         let duration = Duration::from_secs(config.acquire_timeout_seconds);
 
         assert_eq!(duration.as_secs(), 10);
@@ -186,7 +186,7 @@ mod tests {
     fn test_database_drop_behavior() {
         // This is a conceptual test - in reality we'd need to mock the pool
         // to test the drop behavior properly
-        let config = create_test_database_config();
+        let config = create_test_postgres_config();
 
         // Ensure configuration is valid for drop testing
         assert!(!config.host.is_empty());

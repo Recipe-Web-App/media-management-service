@@ -19,7 +19,10 @@ use tracing::info;
 use uuid::Uuid;
 
 use crate::{
-    infrastructure::{config::AppConfig, persistence::Database},
+    infrastructure::{
+        config::AppConfig,
+        persistence::{Database, PostgreSqlMediaRepository},
+    },
     presentation::{
         middleware::{error::global_error_handler, AppError},
         routes,
@@ -39,7 +42,7 @@ impl MakeRequestId for EnhancedRequestId {
 }
 
 /// Create the main application router
-pub fn create_app(config: &AppConfig, _database: Option<Database>) -> Router {
+pub fn create_app(config: &AppConfig, database: Option<&Database>) -> Router {
     let middleware_stack = ServiceBuilder::new()
         .layer(SetRequestIdLayer::new(
             header::HeaderName::from_static("x-request-id"),
@@ -53,6 +56,10 @@ pub fn create_app(config: &AppConfig, _database: Option<Database>) -> Router {
         .layer(DefaultBodyLimit::max(
             usize::try_from(config.server.max_upload_size).unwrap_or(100_000_000),
         ));
+
+    // TODO: Add repository dependency injection when handlers are updated
+    // For now, the database connection is established but not yet used by handlers
+    let _media_repo = database.as_ref().map(|db| PostgreSqlMediaRepository::new(db.pool().clone()));
 
     Router::new().merge(routes::create_routes()).layer(middleware_stack).fallback(not_found_handler)
 }
@@ -98,7 +105,7 @@ fn create_cors_layer() -> CorsLayer {
 /// Returns an error if the server fails to start
 pub async fn start_server(config: AppConfig) -> Result<(), Box<dyn std::error::Error>> {
     // Try to initialize database connection
-    let database = match Database::new(&config.database).await {
+    let database = match Database::new(&config.postgres).await {
         Ok(db) => Some(db),
         Err(e) => {
             tracing::warn!("Failed to connect to database: {}", e);
@@ -107,7 +114,7 @@ pub async fn start_server(config: AppConfig) -> Result<(), Box<dyn std::error::E
         }
     };
 
-    let app = create_app(&config, database);
+    let app = create_app(&config, database.as_ref());
     let addr = config.server.socket_addr();
 
     info!("Starting server on {}", addr);
@@ -131,7 +138,7 @@ pub async fn start_server(config: AppConfig) -> Result<(), Box<dyn std::error::E
 mod tests {
     use super::*;
     use crate::infrastructure::config::{
-        AuthConfig, DatabaseConfig, LoggingConfig, MetricsConfig, MiddlewareConfig,
+        AuthConfig, LoggingConfig, MetricsConfig, MiddlewareConfig, PostgresConfig,
         RateLimitTiersConfig, RateLimitingConfig, RequestLoggingConfig, RuntimeMode,
         SecurityConfig, SecurityFeatures, ServerConfig, StorageConfig, ValidationConfig,
     };
@@ -147,7 +154,7 @@ mod tests {
                 port: 0,
                 max_upload_size: 1_000_000,
             },
-            database: DatabaseConfig {
+            postgres: PostgresConfig {
                 url: "postgres://test:test@localhost:5432/test".to_string(),
                 max_connections: 5,
                 min_connections: 1,
