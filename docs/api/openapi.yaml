@@ -1,0 +1,588 @@
+openapi: 3.1.0
+info:
+  title: Media Management Service API
+  description: |
+    Production-ready media management service for the Recipe Web Application ecosystem.
+
+    Handles file uploads, processing, storage, and retrieval with a focus on security,
+    performance, and scalability. Built with Rust using Clean/Hexagonal Architecture.
+
+    **Current Status**: Development phase - most media endpoints return placeholder responses.
+  version: 0.1.0
+  contact:
+    name: Recipe Web App Team
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:3000/api/v1/media-management
+    description: Local development server
+  - url: http://media-management.local/api/v1/media-management
+    description: Kubernetes deployment
+
+tags:
+  - name: health
+    description: Health and readiness checks
+  - name: media
+    description: Media file operations
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Health check
+      description: Kubernetes liveness probe endpoint
+      operationId: healthCheck
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: healthy
+                timestamp: "2024-08-24T10:30:00.123Z"
+                service: "media-management-service"
+
+  /ready:
+    get:
+      tags: [health]
+      summary: Readiness check
+      description: Kubernetes readiness probe endpoint
+      operationId: readinessCheck
+      responses:
+        "200":
+          description: Service is ready to accept requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
+              example:
+                status: ready
+                timestamp: "2024-08-24T10:30:00.123Z"
+                checks:
+                  database: not_configured
+                  storage: ok
+
+  /media:
+    post:
+      tags: [media]
+      summary: Upload media file
+      description: |
+        Upload a new media file to the system.
+
+        **Status**: 🚧 Not Implemented - Returns 501 Not Implemented
+      operationId: uploadMedia
+      requestBody:
+        description: Media file upload request
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The media file to upload
+                filename:
+                  type: string
+                  description: Original filename
+                  example: "example.jpg"
+              required:
+                - file
+                - filename
+      responses:
+        "201":
+          description: Media uploaded successfully (planned)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadMediaResponse"
+        "400":
+          description: Bad request - invalid file or parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "413":
+          description: File too large
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "501":
+          description: Not implemented (current response)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Not Implemented"
+                message: "Media upload functionality is not yet implemented"
+
+    get:
+      tags: [media]
+      summary: List media files
+      description: |
+        Retrieve a list of media files with optional filtering and pagination.
+
+        **Status**: 🚧 Partially Implemented - Returns empty array
+      operationId: listMedia
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of items to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 50
+        - name: offset
+          in: query
+          description: Number of items to skip for pagination
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: status
+          in: query
+          description: Filter by processing status
+          required: false
+          schema:
+            $ref: "#/components/schemas/ProcessingStatus"
+      responses:
+        "200":
+          description: List of media files
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MediaDto"
+              example: []
+        "400":
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /media/{id}:
+    get:
+      tags: [media]
+      summary: Get media by ID
+      description: |
+        Retrieve detailed information about a specific media file.
+
+        **Status**: 🚧 Not Implemented - Returns 404 Not Found
+      operationId: getMediaById
+      parameters:
+        - name: id
+          in: path
+          description: The unique identifier of the media file
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        "200":
+          description: Media information (planned)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaDto"
+        "404":
+          description: Media not found (current response)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Not Found"
+                message: "Media not found"
+
+  /media/{id}/download:
+    get:
+      tags: [media]
+      summary: Download media file
+      description: |
+        Download the actual media file binary data.
+
+        **Status**: 🚧 Not Implemented - Returns 501 Not Implemented
+      operationId: downloadMedia
+      parameters:
+        - name: id
+          in: path
+          description: The unique identifier of the media file
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        "200":
+          description: Media file binary data (planned)
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+            audio/mpeg:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              description: Attachment with original filename
+              schema:
+                type: string
+                example: 'attachment; filename="example.jpg"'
+            Content-Length:
+              description: Size of the file in bytes
+              schema:
+                type: integer
+        "404":
+          description: Media not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "501":
+          description: Not implemented (current response)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Not Implemented"
+                message: "Media download functionality is not yet implemented"
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+        - service
+      properties:
+        status:
+          type: string
+          enum: [healthy]
+          example: healthy
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-08-24T10:30:00.123Z"
+        service:
+          type: string
+          example: "media-management-service"
+
+    ReadinessResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+        - checks
+      properties:
+        status:
+          type: string
+          enum: [ready, not_ready]
+          example: ready
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-08-24T10:30:00.123Z"
+        checks:
+          type: object
+          properties:
+            database:
+              type: string
+              enum: [ok, error, not_configured]
+              example: not_configured
+            storage:
+              type: string
+              enum: [ok, error]
+              example: ok
+
+    MediaDto:
+      type: object
+      required:
+        - id
+        - content_hash
+        - original_filename
+        - media_type
+        - file_size
+        - processing_status
+        - uploaded_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the media file
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        content_hash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+          description: SHA-256 hash of the file content
+          example: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        original_filename:
+          type: string
+          description: Original filename as uploaded
+          example: "example.jpg"
+        media_type:
+          $ref: "#/components/schemas/MediaType"
+        file_size:
+          type: integer
+          format: int64
+          minimum: 0
+          description: File size in bytes
+          example: 1048576
+        processing_status:
+          $ref: "#/components/schemas/ProcessingStatus"
+        uploaded_at:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the file was uploaded
+          example: "2024-08-24T10:30:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the file was last updated
+          example: "2024-08-24T10:35:00Z"
+
+    MediaType:
+      oneOf:
+        - $ref: "#/components/schemas/ImageMediaType"
+        - $ref: "#/components/schemas/VideoMediaType"
+        - $ref: "#/components/schemas/AudioMediaType"
+      discriminator:
+        propertyName: type
+
+    ImageMediaType:
+      type: object
+      required:
+        - Image
+      properties:
+        Image:
+          type: object
+          required:
+            - format
+            - width
+            - height
+          properties:
+            format:
+              type: string
+              enum: [Jpeg, Png, WebP, Avif, Gif]
+              example: Jpeg
+            width:
+              type: integer
+              minimum: 1
+              example: 1920
+            height:
+              type: integer
+              minimum: 1
+              example: 1080
+
+    VideoMediaType:
+      type: object
+      required:
+        - Video
+      properties:
+        Video:
+          type: object
+          required:
+            - format
+            - width
+            - height
+          properties:
+            format:
+              type: string
+              enum: [Mp4, Webm, Mov, Avi]
+              example: Mp4
+            width:
+              type: integer
+              minimum: 1
+              example: 1280
+            height:
+              type: integer
+              minimum: 1
+              example: 720
+            duration_seconds:
+              type: integer
+              minimum: 0
+              nullable: true
+              example: 120
+
+    AudioMediaType:
+      type: object
+      required:
+        - Audio
+      properties:
+        Audio:
+          type: object
+          required:
+            - format
+          properties:
+            format:
+              type: string
+              enum: [Mp3, Wav, Flac, Ogg]
+              example: Mp3
+            duration_seconds:
+              type: integer
+              minimum: 0
+              nullable: true
+              example: 240
+            bitrate:
+              type: integer
+              minimum: 0
+              nullable: true
+              example: 128000
+
+    ProcessingStatus:
+      oneOf:
+        - type: string
+          enum: [Pending, Processing, Complete]
+        - type: object
+          required:
+            - Failed
+          properties:
+            Failed:
+              type: string
+              description: Error message describing the failure
+              example: "Corrupted file header"
+      examples:
+        - Pending
+        - Processing
+        - Complete
+        - Failed: "Invalid file format"
+
+    UploadMediaResponse:
+      type: object
+      required:
+        - media_id
+        - content_hash
+        - processing_status
+      properties:
+        media_id:
+          type: string
+          format: uuid
+          description: Unique identifier for the uploaded media
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        content_hash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+          description: SHA-256 hash of the uploaded file
+          example: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        processing_status:
+          $ref: "#/components/schemas/ProcessingStatus"
+        upload_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Optional direct URL to access the uploaded file
+          example: "https://example.com/media/550e8400-e29b-41d4-a716-446655440000"
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error type identifier
+          example: "Not Found"
+        message:
+          type: string
+          description: Human-readable error description
+          example: "The requested resource was not found"
+        details:
+          type: object
+          description: Additional error context (optional)
+          additionalProperties: true
+
+  parameters:
+    MediaId:
+      name: id
+      in: path
+      description: The unique identifier of the media file
+      required: true
+      schema:
+        type: string
+        format: uuid
+        example: "550e8400-e29b-41d4-a716-446655440000"
+
+  responses:
+    NotFound:
+      description: The requested resource was not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: "Not Found"
+            message: "The requested resource was not found"
+
+    NotImplemented:
+      description: The requested functionality is not yet implemented
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: "Not Implemented"
+            message: "This functionality is not yet implemented"
+
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: "Bad Request"
+            message: "Invalid request parameters"
+
+    InternalServerError:
+      description: Unexpected server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: "Internal Server Error"
+            message: "An unexpected error occurred"
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token authentication (planned - currently disabled)
+
+# Security is currently disabled in development
+# security:
+#   - BearerAuth: []
+
+externalDocs:
+  description: Media Management Service Documentation
+  url: ./API.md
