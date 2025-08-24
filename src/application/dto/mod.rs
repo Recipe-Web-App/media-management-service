@@ -1,7 +1,4 @@
-use crate::domain::{
-    entities::MediaId,
-    value_objects::{MediaType, ProcessingStatus},
-};
+use crate::domain::{entities::MediaId, value_objects::ProcessingStatus};
 use serde::{Deserialize, Serialize};
 
 /// Data Transfer Object for media information
@@ -10,7 +7,8 @@ pub struct MediaDto {
     pub id: MediaId,
     pub content_hash: String,
     pub original_filename: String,
-    pub media_type: MediaType,
+    pub media_type: String, // MIME type string
+    pub media_path: String,
     pub file_size: u64,
     pub processing_status: ProcessingStatus,
     pub uploaded_at: String, // ISO 8601 timestamp
@@ -44,15 +42,15 @@ pub struct ListMediaQuery {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::value_objects::{ImageFormat, VideoFormat};
 
     fn create_test_media_dto() -> MediaDto {
         MediaDto {
-            id: MediaId::new(),
+            id: MediaId::new(1),
             content_hash: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
                 .to_string(),
             original_filename: "test.jpg".to_string(),
-            media_type: MediaType::Image { format: ImageFormat::Jpeg, width: 1920, height: 1080 },
+            media_type: "image/jpeg".to_string(),
+            media_path: "ab/cd/ef/abcdef123".to_string(),
             file_size: 1024,
             processing_status: ProcessingStatus::Complete,
             uploaded_at: "2023-01-01T00:00:00Z".to_string(),
@@ -78,16 +76,12 @@ mod tests {
     #[test]
     fn test_media_dto_with_video() {
         let dto = MediaDto {
-            id: MediaId::new(),
+            id: MediaId::new(2),
             content_hash: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
                 .to_string(),
             original_filename: "test.mp4".to_string(),
-            media_type: MediaType::Video {
-                format: VideoFormat::Mp4,
-                width: 1280,
-                height: 720,
-                duration_seconds: Some(120),
-            },
+            media_type: "video/mp4".to_string(),
+            media_path: "12/34/56/1234567890".to_string(),
             file_size: 5_000_000,
             processing_status: ProcessingStatus::Processing,
             uploaded_at: "2023-01-01T00:00:00Z".to_string(),
@@ -112,7 +106,7 @@ mod tests {
     #[test]
     fn test_upload_media_response_serialization() {
         let response = UploadMediaResponse {
-            media_id: MediaId::new(),
+            media_id: MediaId::new(3),
             content_hash: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
                 .to_string(),
             processing_status: ProcessingStatus::Pending,
@@ -131,10 +125,10 @@ mod tests {
     #[test]
     fn test_upload_media_response_without_url() {
         let response = UploadMediaResponse {
-            media_id: MediaId::new(),
+            media_id: MediaId::new(4),
             content_hash: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
                 .to_string(),
-            processing_status: ProcessingStatus::Failed("Invalid format".to_string()),
+            processing_status: ProcessingStatus::Failed,
             upload_url: None,
         };
 
@@ -178,11 +172,11 @@ mod tests {
 
     #[test]
     fn test_list_media_query_with_failed_status() {
-        let json = r#"{"status": {"Failed": "Corrupted file"}}"#;
+        let json = r#"{"status": "Failed"}"#;
         let query: ListMediaQuery = serde_json::from_str(json).unwrap();
 
         match query.status {
-            Some(ProcessingStatus::Failed(msg)) => assert_eq!(msg, "Corrupted file"),
+            Some(ProcessingStatus::Failed) => {}
             _ => panic!("Expected Failed status"),
         }
     }

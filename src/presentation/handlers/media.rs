@@ -105,8 +105,8 @@ mod tests {
     }
 
     #[rstest]
-    #[case(MediaId::new())]
-    #[case(MediaId::from_uuid(uuid::Uuid::new_v4()))]
+    #[case(MediaId::new(1))]
+    #[case(MediaId::new(42))]
     #[tokio::test]
     async fn test_get_media_returns_not_found(#[case] media_id: MediaId) {
         let result = get_media(Path(media_id)).await;
@@ -120,8 +120,8 @@ mod tests {
     }
 
     #[rstest]
-    #[case(MediaId::new())]
-    #[case(MediaId::from_uuid(uuid::Uuid::new_v4()))]
+    #[case(MediaId::new(1))]
+    #[case(MediaId::new(42))]
     #[tokio::test]
     async fn test_download_media_returns_not_implemented(#[case] media_id: MediaId) {
         let result = download_media(Path(media_id)).await;
@@ -138,7 +138,7 @@ mod tests {
     #[case(ProcessingStatus::Pending)]
     #[case(ProcessingStatus::Processing)]
     #[case(ProcessingStatus::Complete)]
-    #[case(ProcessingStatus::Failed("Test error".to_string()))]
+    #[case(ProcessingStatus::Failed)]
     #[tokio::test]
     async fn test_list_media_with_different_status_filters(#[case] status: ProcessingStatus) {
         let query = ListMediaQuery { limit: None, offset: None, status: Some(status) };
@@ -177,14 +177,14 @@ mod tests {
         assert!(upload_json.get("message").is_some());
 
         // Test get error
-        let get_result = get_media(Path(MediaId::new())).await;
+        let get_result = get_media(Path(MediaId::new(1))).await;
         assert!(get_result.is_err());
         let (_, get_json) = get_result.unwrap_err();
         assert!(get_json.get("error").is_some());
         assert!(get_json.get("message").is_some());
 
         // Test download error
-        let download_result = download_media(Path(MediaId::new())).await;
+        let download_result = download_media(Path(MediaId::new(1))).await;
         assert!(download_result.is_err());
         let (_, download_json) = download_result.unwrap_err();
         assert!(download_json.get("error").is_some());
@@ -194,8 +194,7 @@ mod tests {
     #[tokio::test]
     async fn test_media_id_path_extraction() {
         // Test that MediaId can be properly extracted from path
-        let test_uuid = uuid::Uuid::new_v4();
-        let media_id = MediaId::from_uuid(test_uuid);
+        let media_id = MediaId::new(123);
 
         // Test get_media
         let get_result = get_media(Path(media_id)).await;

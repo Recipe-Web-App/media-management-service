@@ -9,6 +9,7 @@ pub struct MediaBuilder {
     content_hash: Option<ContentHash>,
     original_filename: Option<String>,
     media_type: Option<MediaType>,
+    media_path: Option<String>,
     file_size: Option<u64>,
     processing_status: Option<ProcessingStatus>,
     uploaded_by: Option<UserId>,
@@ -23,6 +24,7 @@ impl MediaBuilder {
             content_hash: None,
             original_filename: None,
             media_type: None,
+            media_path: None,
             file_size: None,
             processing_status: None,
             uploaded_by: None,
@@ -56,16 +58,22 @@ impl MediaBuilder {
         self
     }
 
+    pub fn with_media_path(mut self, path: &str) -> Self {
+        self.media_path = Some(path.to_string());
+        self
+    }
+
     pub fn build(self) -> Media {
         let content_hash = self.content_hash.unwrap_or_else(||
             ContentHash::new("abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890").unwrap()
         );
         let original_filename = self.original_filename.unwrap_or_else(|| "test.jpg".to_string());
-        let media_type = self.media_type.unwrap_or(MediaType::Image);
+        let media_type = self.media_type.unwrap_or_else(|| MediaType::new("image/jpeg"));
+        let media_path = self.media_path.unwrap_or_else(|| "ab/cd/ef/abcdef123".to_string());
         let file_size = self.file_size.unwrap_or(1024);
         let uploaded_by = self.uploaded_by.unwrap_or_else(UserId::new);
 
-        Media::new(content_hash, original_filename, media_type, file_size, uploaded_by)
+        Media::new(content_hash, original_filename, media_type, media_path, file_size, uploaded_by)
     }
 }
 

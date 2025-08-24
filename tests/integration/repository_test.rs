@@ -1,7 +1,7 @@
 use media_management_service::domain::{
     entities::{Media, MediaId, UserId},
     repositories::MediaRepository,
-    value_objects::{ContentHash, ImageFormat, MediaType, ProcessingStatus},
+    value_objects::{ContentHash, MediaType, ProcessingStatus},
 };
 
 mod common;
