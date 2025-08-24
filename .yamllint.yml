@@ -1,3 +1,4 @@
+---
 # yamllint configuration for Rust media management service
 # See: https://yamllint.readthedocs.io/en/stable/configuration.html
 
@@ -15,7 +16,8 @@ rules:
 
   # Document start - not required for all YAML files
   document-start:
-    present: false
+    present: true
+    level: error
 
   # Indentation - enforce consistent 2-space indentation
   indentation:
