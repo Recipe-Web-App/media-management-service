@@ -20,6 +20,9 @@ pub mod domain;
 pub mod infrastructure;
 pub mod presentation;
 
+#[cfg(test)]
+pub mod test_utils;
+
 // Re-export commonly used types
 pub use application::dto::*;
 pub use domain::entities::*;

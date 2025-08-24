@@ -28,3 +28,6 @@ pub trait MediaRepository: Send + Sync {
     /// Check if media exists by content hash
     async fn exists_by_content_hash(&self, hash: &ContentHash) -> Result<bool, Self::Error>;
 }
+
+// Mock implementation moved to test utilities
+// This avoids complex generic type issues with mockall
