@@ -8,6 +8,7 @@ use crate::domain::repositories::MediaRepository;
 use crate::domain::value_objects::{ContentHash, MediaType, ProcessingStatus};
 
 /// `PostgreSQL` implementation of `MediaRepository`
+#[derive(Clone)]
 pub struct PostgreSqlMediaRepository {
     pool: PgPool,
 }

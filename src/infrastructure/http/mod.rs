@@ -22,8 +22,10 @@ use crate::{
     infrastructure::{
         config::AppConfig,
         persistence::{Database, PostgreSqlMediaRepository},
+        storage::FilesystemStorage,
     },
     presentation::{
+        handlers::media::AppState,
         middleware::{error::global_error_handler, AppError},
         routes,
     },
@@ -57,11 +59,29 @@ pub fn create_app(config: &AppConfig, database: Option<&Database>) -> Router {
             usize::try_from(config.server.max_upload_size).unwrap_or(100_000_000),
         ));
 
-    // TODO: Add repository dependency injection when handlers are updated
-    // For now, the database connection is established but not yet used by handlers
-    let _media_repo = database.as_ref().map(|db| PostgreSqlMediaRepository::new(db.pool().clone()));
+    // Create application with or without database
+    if let Some(db) = database {
+        // Create repository and storage
+        let media_repo = std::sync::Arc::new(PostgreSqlMediaRepository::new(db.pool().clone()));
+        let file_storage = std::sync::Arc::new(FilesystemStorage::new(&config.storage.base_path));
 
-    Router::new().merge(routes::create_routes()).layer(middleware_stack).fallback(not_found_handler)
+        // Create application state
+        let app_state = AppState::new(media_repo, file_storage, config.storage.max_file_size);
+
+        tracing::info!("Creating application with database and full media functionality");
+
+        Router::new()
+            .merge(routes::create_routes_with_state(app_state))
+            .layer(middleware_stack)
+            .fallback(not_found_handler)
+    } else {
+        tracing::warn!("Creating application without database - media endpoints will have limited functionality");
+
+        Router::new()
+            .merge(routes::create_routes())
+            .layer(middleware_stack)
+            .fallback(not_found_handler)
+    }
 }
 
 /// Health check endpoint for Kubernetes liveness probe
