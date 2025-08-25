@@ -139,6 +139,34 @@ kubectl delete secret "$SECRET_NAME" -n "$NAMESPACE" --ignore-not-found
 envsubst < "${CONFIG_DIR}/secret-template.yaml" | kubectl apply -f -
 
 print_separator "="
+echo -e "${CYAN}💾 Creating Persistent Volume Claim for media storage...${NC}"
+print_separator "-"
+
+kubectl apply -f "${CONFIG_DIR}/persistentvolumeclaim.yaml"
+
+print_separator "-"
+echo -e "${CYAN}⏳ Waiting for PVC to be bound...${NC}"
+
+# Wait for PVC to be bound (timeout after 90 seconds)
+if kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/media-storage-pvc -n "$NAMESPACE" --timeout=90s; then
+    print_status "ok" "PVC bound successfully"
+
+    # Show PVC status
+    PVC_STATUS=$(kubectl get pvc media-storage-pvc -n "$NAMESPACE" -o jsonpath='{.status.phase}' 2>/dev/null || echo "Unknown")
+    PVC_CAPACITY=$(kubectl get pvc media-storage-pvc -n "$NAMESPACE" -o jsonpath='{.status.capacity.storage}' 2>/dev/null || echo "Unknown")
+    PVC_STORAGE_CLASS=$(kubectl get pvc media-storage-pvc -n "$NAMESPACE" -o jsonpath='{.spec.storageClassName}' 2>/dev/null || echo "default")
+
+    echo "   📊 PVC Status: $PVC_STATUS"
+    echo "   📦 Allocated: $PVC_CAPACITY"
+    echo "   🏷️  Storage Class: $PVC_STORAGE_CLASS"
+else
+    print_status "error" "PVC failed to bind within 90 seconds"
+    echo "Checking PVC events for troubleshooting:"
+    kubectl describe pvc media-storage-pvc -n "$NAMESPACE"
+    exit 1
+fi
+
+print_separator "="
 echo -e "${CYAN}📦 Deploying Media Management Service container...${NC}"
 print_separator "-"
 

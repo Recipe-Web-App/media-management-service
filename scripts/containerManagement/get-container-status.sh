@@ -246,6 +246,94 @@ fi
 
 print_separator
 echo ""
+echo -e "${CYAN}💾 Persistent Storage Status:${NC}"
+if kubectl get pvc media-storage-pvc -n "$NAMESPACE" >/dev/null 2>&1; then
+    kubectl get pvc media-storage-pvc -n "$NAMESPACE"
+    print_status "ok" "PVC exists"
+
+    # Get PVC details
+    PVC_STATUS=$(kubectl get pvc media-storage-pvc -n "$NAMESPACE" -o jsonpath='{.status.phase}' 2>/dev/null || echo "unknown")
+    PVC_CAPACITY=$(kubectl get pvc media-storage-pvc -n "$NAMESPACE" -o jsonpath='{.status.capacity.storage}' 2>/dev/null || echo "unknown")
+    PVC_REQUESTED=$(kubectl get pvc media-storage-pvc -n "$NAMESPACE" -o jsonpath='{.spec.resources.requests.storage}' 2>/dev/null || echo "unknown")
+    PVC_STORAGE_CLASS=$(kubectl get pvc media-storage-pvc -n "$NAMESPACE" -o jsonpath='{.spec.storageClassName}' 2>/dev/null || echo "default")
+    PVC_ACCESS_MODES=$(kubectl get pvc media-storage-pvc -n "$NAMESPACE" -o jsonpath='{.spec.accessModes[*]}' 2>/dev/null || echo "unknown")
+    PV_NAME=$(kubectl get pvc media-storage-pvc -n "$NAMESPACE" -o jsonpath='{.spec.volumeName}' 2>/dev/null || echo "unknown")
+
+    echo "   📊 Status: $PVC_STATUS"
+    echo "   📦 Requested: $PVC_REQUESTED, Allocated: $PVC_CAPACITY"
+    echo "   🏷️  Storage Class: $PVC_STORAGE_CLASS"
+    echo "   🔐 Access Modes: $PVC_ACCESS_MODES"
+    echo "   🗄️  Persistent Volume: $PV_NAME"
+
+    if [ "$PVC_STATUS" = "Bound" ]; then
+        print_status "ok" "PVC is bound and ready"
+
+        # Get Persistent Volume details if available
+        if [ "$PV_NAME" != "unknown" ] && kubectl get pv "$PV_NAME" >/dev/null 2>&1; then
+            PV_RECLAIM_POLICY=$(kubectl get pv "$PV_NAME" -o jsonpath='{.spec.persistentVolumeReclaimPolicy}' 2>/dev/null || echo "unknown")
+            PV_STATUS=$(kubectl get pv "$PV_NAME" -o jsonpath='{.status.phase}' 2>/dev/null || echo "unknown")
+            echo "   🗃️  PV Status: $PV_STATUS, Reclaim Policy: $PV_RECLAIM_POLICY"
+        fi
+    else
+        print_status "warning" "PVC is not bound (Status: $PVC_STATUS)"
+
+        # Show PVC events for troubleshooting
+        echo "   🔍 Recent PVC events:"
+        kubectl describe pvc media-storage-pvc -n "$NAMESPACE" 2>/dev/null | grep -A 10 "Events:" | tail -n +2 | head -5 | sed 's/^/      /' || echo "      No events found"
+    fi
+
+    # Check if storage class exists and get details
+    if [ "$PVC_STORAGE_CLASS" != "default" ] && kubectl get storageclass "$PVC_STORAGE_CLASS" >/dev/null 2>&1; then
+        SC_PROVISIONER=$(kubectl get storageclass "$PVC_STORAGE_CLASS" -o jsonpath='{.provisioner}' 2>/dev/null || echo "unknown")
+        SC_RECLAIM_POLICY=$(kubectl get storageclass "$PVC_STORAGE_CLASS" -o jsonpath='{.reclaimPolicy}' 2>/dev/null || echo "unknown")
+        SC_BINDING_MODE=$(kubectl get storageclass "$PVC_STORAGE_CLASS" -o jsonpath='{.volumeBindingMode}' 2>/dev/null || echo "unknown")
+        echo "   🏪 StorageClass Details:"
+        echo "      Provisioner: $SC_PROVISIONER"
+        echo "      Reclaim Policy: $SC_RECLAIM_POLICY"
+        echo "      Binding Mode: $SC_BINDING_MODE"
+    fi
+else
+    print_status "error" "PVC not found"
+    echo "   ⚠️  Media files will be stored in ephemeral storage and lost on pod restart"
+fi
+
+print_separator
+echo ""
+echo -e "${CYAN}🔗 Volume Mount Status:${NC}"
+if kubectl get pods -l app=media-management-service -n "$NAMESPACE" >/dev/null 2>&1; then
+    POD_NAME=$(kubectl get pods -l app=media-management-service -n "$NAMESPACE" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+    if [ -n "$POD_NAME" ]; then
+        # Check volume mounts
+        MOUNT_INFO=$(kubectl get pod "$POD_NAME" -n "$NAMESPACE" -o jsonpath='{.spec.containers[0].volumeMounts[?(@.name=="media-storage")]}' 2>/dev/null || echo "")
+        if [ -n "$MOUNT_INFO" ]; then
+            MOUNT_PATH=$(echo "$MOUNT_INFO" | grep -o '"mountPath":"[^"]*"' | cut -d'"' -f4 2>/dev/null || echo "unknown")
+            print_status "ok" "Media storage mounted at: $MOUNT_PATH"
+
+            # Test mount accessibility (if pod is running)
+            POD_STATUS=$(kubectl get pod "$POD_NAME" -n "$NAMESPACE" -o jsonpath='{.status.phase}' 2>/dev/null || echo "Unknown")
+            if [ "$POD_STATUS" = "Running" ]; then
+                # Check if mount is writable
+                MOUNT_TEST=$(kubectl exec "$POD_NAME" -n "$NAMESPACE" -- test -w "$MOUNT_PATH" 2>/dev/null && echo "writable" || echo "not writable")
+                echo "   ✍️  Mount status: $MOUNT_TEST"
+
+                # Check disk usage if possible
+                DISK_USAGE=$(kubectl exec "$POD_NAME" -n "$NAMESPACE" -- df -h "$MOUNT_PATH" 2>/dev/null | tail -1 | awk '{print $2" total, "$3" used, "$4" available ("$5" used)"}' 2>/dev/null || echo "unable to check")
+                echo "   💽 Disk usage: $DISK_USAGE"
+            else
+                print_status "warning" "Pod not running - cannot test mount accessibility"
+            fi
+        else
+            print_status "error" "Media storage volume mount not found in pod spec"
+        fi
+    else
+        print_status "error" "No pod found to check volume mounts"
+    fi
+else
+    print_status "error" "No pods found"
+fi
+
+print_separator
+echo ""
 echo -e "${CYAN}🐳 Docker Image Status:${NC}"
 if command_exists minikube && minikube status >/dev/null 2>&1; then
     eval "$(minikube docker-env)"
@@ -306,14 +394,43 @@ fi
 print_separator
 echo ""
 echo -e "${CYAN}📊 Summary:${NC}"
-if kubectl get pods -l app=media-management-service -n "$NAMESPACE" -o jsonpath='{.items[0].status.phase}' 2>/dev/null | grep -q "Running"; then
-    if curl -s -f -m 5 http://media-management.local/api/v1/media-management/health >/dev/null 2>&1; then
-        print_status "ok" "Service is fully operational"
-    else
-        print_status "warning" "Service is running but not accessible"
-    fi
+# Check overall service health
+STORAGE_HEALTHY=true
+
+# Check pod status
+POD_RUNNING=$(kubectl get pods -l app=media-management-service -n "$NAMESPACE" -o jsonpath='{.items[0].status.phase}' 2>/dev/null | grep -q "Running" && echo "true" || echo "false")
+
+# Check connectivity
+if [ "$POD_RUNNING" = "true" ]; then
+    ENDPOINT_ACCESSIBLE=$(curl -s -f -m 5 http://media-management.local/api/v1/media-management/health >/dev/null 2>&1 && echo "true" || echo "false")
+else
+    ENDPOINT_ACCESSIBLE="false"
+fi
+
+# Check storage status
+PVC_BOUND=$(kubectl get pvc media-storage-pvc -n "$NAMESPACE" -o jsonpath='{.status.phase}' 2>/dev/null | grep -q "Bound" && echo "true" || echo "false")
+
+if [ "$PVC_BOUND" != "true" ]; then
+    STORAGE_HEALTHY=false
+fi
+
+# Overall assessment
+if [ "$POD_RUNNING" = "true" ] && [ "$ENDPOINT_ACCESSIBLE" = "true" ] && [ "$STORAGE_HEALTHY" = "true" ]; then
+    print_status "ok" "Service is fully operational with persistent storage"
+elif [ "$POD_RUNNING" = "true" ] && [ "$ENDPOINT_ACCESSIBLE" = "true" ] && [ "$STORAGE_HEALTHY" = "false" ]; then
+    print_status "warning" "Service is running but storage may not persist (PVC not bound)"
+elif [ "$POD_RUNNING" = "true" ] && [ "$ENDPOINT_ACCESSIBLE" = "false" ]; then
+    print_status "warning" "Service is running but not accessible via ingress"
 else
     print_status "error" "Service is not running properly"
+fi
+
+# Storage summary
+if [ "$STORAGE_HEALTHY" = "true" ]; then
+    PVC_CAPACITY=$(kubectl get pvc media-storage-pvc -n "$NAMESPACE" -o jsonpath='{.status.capacity.storage}' 2>/dev/null || echo "unknown")
+    echo "   💾 Persistent storage: $PVC_CAPACITY allocated and bound"
+else
+    echo "   ⚠️  Persistent storage: Not available - files will be lost on restart"
 fi
 
 print_separator
