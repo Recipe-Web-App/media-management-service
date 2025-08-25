@@ -88,8 +88,8 @@ spec:
               mountPath: /tmp
       volumes:
         - name: media-storage
-          emptyDir:
-            sizeLimit: 10Gi
+          persistentVolumeClaim:
+            claimName: media-storage-pvc
         - name: logs-volume
           emptyDir: {}
         - name: tmp-volume

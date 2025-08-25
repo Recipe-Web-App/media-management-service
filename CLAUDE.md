@@ -133,6 +133,7 @@ src/
 #### Storage Strategy
 
 - **Content-Addressable Storage (CAS)** - Hash-based file organization for deduplication
+- **Persistent Volume Storage** - Kubernetes-native persistent storage for production deployments
 - **Filesystem Storage** - Direct file storage for optimal performance
 - **Multi-tier Architecture** - Hot/warm/cold storage based on access patterns
 
@@ -296,14 +297,39 @@ curl http://media-management.local/api/v1/media-management/health
 
 ### Container Management Scripts
 
-| Script                    | Purpose                                                       | When to Use                       |
-| ------------------------- | ------------------------------------------------------------- | --------------------------------- |
-| `deploy-container.sh`     | **Full deployment** - Builds image, applies all K8s manifests | Initial deployment, major updates |
-| `start-container.sh`      | **Start service** - Scale deployment to 1 replica             | After stopping, startup           |
-| `stop-container.sh`       | **Stop service** - Scale deployment to 0 replicas             | Maintenance, development pause    |
-| `update-container.sh`     | **Update image** - Rebuild and restart with new code          | Code changes, hot updates         |
-| `cleanup-container.sh`    | **Complete cleanup** - Remove all resources                   | Clean slate, troubleshooting      |
-| `get-container-status.sh` | **Status check** - Comprehensive deployment overview          | Monitoring, debugging             |
+| Script                    | Purpose                                                                      | When to Use                       |
+| ------------------------- | ---------------------------------------------------------------------------- | --------------------------------- |
+| `deploy-container.sh`     | **Full deployment** - Builds image, creates PVC, applies all K8s manifests   | Initial deployment, major updates |
+| `start-container.sh`      | **Start service** - Scale deployment to 1 replica                            | After stopping, startup           |
+| `stop-container.sh`       | **Stop service** - Scale deployment to 0 replicas                            | Maintenance, development pause    |
+| `update-container.sh`     | **Update image** - Rebuild and restart with new code                         | Code changes, hot updates         |
+| `cleanup-container.sh`    | **Interactive cleanup** - Remove all resources, optionally keep media files  | Clean slate, troubleshooting      |
+| `get-container-status.sh` | **Status check** - Comprehensive deployment overview with storage monitoring | Monitoring, debugging             |
+
+#### ⚠️ Important Storage Notes
+
+- **Interactive PVC Cleanup**: `cleanup-container.sh` now prompts before deleting media files, allowing you to preserve data
+- **Data Persistence**: Media files persist across pod restarts and deployments via Kubernetes Persistent Volumes
+- **Storage Requirements**: Default allocation is 50Gi - ensure your cluster has sufficient storage capacity
+- **First Deployment**: The deploy script automatically provisions persistent storage and waits for volume binding
+
+#### Cleanup Script Options
+
+The cleanup script supports different modes for automated use:
+
+```bash
+# Interactive mode (default) - prompts for PVC deletion
+./scripts/containerManagement/cleanup-container.sh
+
+# Keep media files safe - cleanup everything except PVC
+./scripts/containerManagement/cleanup-container.sh --keep-pvc
+
+# Delete everything including media files
+./scripts/containerManagement/cleanup-container.sh --delete-pvc
+
+# Force deletion without prompts (for CI/CD)
+./scripts/containerManagement/cleanup-container.sh --force --delete-pvc
+```
 
 ### Environment Configuration
 
@@ -346,7 +372,8 @@ vim .env.prod
 k8s/
 ├── configmap-template.yaml    # Non-sensitive configuration
 ├── secret-template.yaml      # Database password only
-├── deployment.yaml           # Main service deployment
+├── persistentvolumeclaim.yaml # Persistent storage for media files ⭐ NEW
+├── deployment.yaml           # Main service deployment (now uses PVC)
 ├── service.yaml             # ClusterIP service
 ├── ingress.yaml             # External access routing
 ├── networkpolicy.yaml       # Network security rules
@@ -363,9 +390,10 @@ k8s/
 
 ### Storage Strategy
 
-- **Persistent storage**: Uses Kubernetes volumes for media files
-- **Content-addressable**: Hash-based file organization
-- **Multi-tier support**: Hot/warm/cold storage patterns
+- **Persistent storage**: Uses Kubernetes Persistent Volume Claims (50Gi default allocation)
+- **Content-addressable**: Hash-based file organization for deduplication
+- **Data persistence**: Media files survive pod restarts, deployments, and service updates
+- **Multi-tier support**: Configurable storage classes for different performance tiers
 
 ### Future Considerations
 
