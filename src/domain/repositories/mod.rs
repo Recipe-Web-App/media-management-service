@@ -1,4 +1,4 @@
-use crate::domain::entities::{Media, MediaId, UserId};
+use crate::domain::entities::{IngredientId, Media, MediaId, RecipeId, StepId, UserId};
 use crate::domain::value_objects::ContentHash;
 use async_trait::async_trait;
 
@@ -27,6 +27,26 @@ pub trait MediaRepository: Send + Sync {
 
     /// Check if media exists by content hash
     async fn exists_by_content_hash(&self, hash: &ContentHash) -> Result<bool, Self::Error>;
+
+    /// Find media IDs associated with a recipe
+    async fn find_media_ids_by_recipe(
+        &self,
+        recipe_id: RecipeId,
+    ) -> Result<Vec<MediaId>, Self::Error>;
+
+    /// Find media IDs associated with a recipe ingredient
+    async fn find_media_ids_by_recipe_ingredient(
+        &self,
+        recipe_id: RecipeId,
+        ingredient_id: IngredientId,
+    ) -> Result<Vec<MediaId>, Self::Error>;
+
+    /// Find media IDs associated with a recipe step
+    async fn find_media_ids_by_recipe_step(
+        &self,
+        recipe_id: RecipeId,
+        step_id: StepId,
+    ) -> Result<Vec<MediaId>, Self::Error>;
 }
 
 // Mock implementation moved to test utilities

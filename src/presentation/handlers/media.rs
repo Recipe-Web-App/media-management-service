@@ -9,9 +9,12 @@ use std::sync::Arc;
 use crate::{
     application::{
         dto::{ListMediaQuery, MediaDto, UploadMediaResponse},
-        use_cases::{DownloadMediaUseCase, GetMediaUseCase, ListMediaUseCase, UploadMediaUseCase},
+        use_cases::{
+            DownloadMediaUseCase, GetMediaByIngredientUseCase, GetMediaByRecipeUseCase,
+            GetMediaByStepUseCase, GetMediaUseCase, ListMediaUseCase, UploadMediaUseCase,
+        },
     },
-    domain::entities::{MediaId, UserId},
+    domain::entities::{IngredientId, MediaId, RecipeId, StepId, UserId},
     presentation::middleware::error::AppError,
 };
 
@@ -204,6 +207,78 @@ pub async fn download_media(
         .map_err(|e| AppError::Internal { message: format!("Failed to build response: {e}") })?;
 
     Ok(response)
+}
+
+/// Get media IDs associated with a recipe
+///
+/// # Errors
+/// Returns appropriate HTTP status codes for various error conditions
+pub async fn get_media_by_recipe(
+    State(app_state): State<AppState>,
+    Path(recipe_id): Path<RecipeId>,
+) -> Result<Json<Vec<MediaId>>, AppError> {
+    tracing::info!("Processing get media by recipe request for recipe ID: {}", recipe_id);
+
+    let use_case = GetMediaByRecipeUseCase::new(app_state.repository.clone());
+    let media_ids = use_case.execute(recipe_id).await?;
+
+    tracing::info!("Retrieved {} media IDs for recipe: {}", media_ids.len(), recipe_id);
+
+    Ok(Json(media_ids))
+}
+
+/// Get media IDs associated with a recipe ingredient
+///
+/// # Errors
+/// Returns appropriate HTTP status codes for various error conditions
+pub async fn get_media_by_ingredient(
+    State(app_state): State<AppState>,
+    Path((recipe_id, ingredient_id)): Path<(RecipeId, IngredientId)>,
+) -> Result<Json<Vec<MediaId>>, AppError> {
+    tracing::info!(
+        "Processing get media by ingredient request for recipe ID: {}, ingredient ID: {}",
+        recipe_id,
+        ingredient_id
+    );
+
+    let use_case = GetMediaByIngredientUseCase::new(app_state.repository.clone());
+    let media_ids = use_case.execute(recipe_id, ingredient_id).await?;
+
+    tracing::info!(
+        "Retrieved {} media IDs for recipe: {}, ingredient: {}",
+        media_ids.len(),
+        recipe_id,
+        ingredient_id
+    );
+
+    Ok(Json(media_ids))
+}
+
+/// Get media IDs associated with a recipe step
+///
+/// # Errors
+/// Returns appropriate HTTP status codes for various error conditions
+pub async fn get_media_by_step(
+    State(app_state): State<AppState>,
+    Path((recipe_id, step_id)): Path<(RecipeId, StepId)>,
+) -> Result<Json<Vec<MediaId>>, AppError> {
+    tracing::info!(
+        "Processing get media by step request for recipe ID: {}, step ID: {}",
+        recipe_id,
+        step_id
+    );
+
+    let use_case = GetMediaByStepUseCase::new(app_state.repository.clone());
+    let media_ids = use_case.execute(recipe_id, step_id).await?;
+
+    tracing::info!(
+        "Retrieved {} media IDs for recipe: {}, step: {}",
+        media_ids.len(),
+        recipe_id,
+        step_id
+    );
+
+    Ok(Json(media_ids))
 }
 
 #[cfg(test)]

@@ -219,6 +219,12 @@ The service exposes HTTP endpoints following RESTful patterns:
 - `GET /media/{id}` - Get media metadata
 - `GET /media/{id}/download` - Download media files
 
+**Recipe-Related Media Endpoints**:
+
+- `GET /media/recipe/{recipe_id}` - Get media IDs for a recipe
+- `GET /media/recipe/{recipe_id}/ingredient/{ingredient_id}` - Get media IDs for a recipe ingredient
+- `GET /media/recipe/{recipe_id}/step/{step_id}` - Get media IDs for a recipe step
+
 The API follows the `/api/v1/media-management/` namespace pattern consistent with
 other services in the recipe web application ecosystem.
 

@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use sqlx::{PgPool, Row};
 
-use crate::domain::entities::{Media, MediaId, UserId};
+use crate::domain::entities::{IngredientId, Media, MediaId, RecipeId, StepId, UserId};
 use crate::domain::repositories::MediaRepository;
 use crate::domain::value_objects::{ContentHash, MediaType, ProcessingStatus};
 
@@ -196,6 +196,87 @@ impl MediaRepository for PostgreSqlMediaRepository {
 
         let exists: bool = row.get("exists");
         Ok(exists)
+    }
+
+    async fn find_media_ids_by_recipe(
+        &self,
+        recipe_id: RecipeId,
+    ) -> Result<Vec<MediaId>, Self::Error> {
+        let recipe_id = recipe_id.as_i64();
+
+        let rows = sqlx::query(
+            r"
+            SELECT media_id
+            FROM recipe_manager.recipe_media
+            WHERE recipe_id = $1
+            ORDER BY media_id
+            ",
+        )
+        .bind(recipe_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(AppError::from)?;
+
+        let media_ids: Vec<MediaId> =
+            rows.iter().map(|row| MediaId::new(row.get("media_id"))).collect();
+
+        Ok(media_ids)
+    }
+
+    async fn find_media_ids_by_recipe_ingredient(
+        &self,
+        recipe_id: RecipeId,
+        ingredient_id: IngredientId,
+    ) -> Result<Vec<MediaId>, Self::Error> {
+        let recipe_id = recipe_id.as_i64();
+        let ingredient_id = ingredient_id.as_i64();
+
+        let rows = sqlx::query(
+            r"
+            SELECT media_id
+            FROM recipe_manager.ingredient_media
+            WHERE recipe_id = $1 AND ingredient_id = $2
+            ORDER BY media_id
+            ",
+        )
+        .bind(recipe_id)
+        .bind(ingredient_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(AppError::from)?;
+
+        let media_ids: Vec<MediaId> =
+            rows.iter().map(|row| MediaId::new(row.get("media_id"))).collect();
+
+        Ok(media_ids)
+    }
+
+    async fn find_media_ids_by_recipe_step(
+        &self,
+        recipe_id: RecipeId,
+        step_id: StepId,
+    ) -> Result<Vec<MediaId>, Self::Error> {
+        let recipe_id = recipe_id.as_i64();
+        let step_id = step_id.as_i64();
+
+        let rows = sqlx::query(
+            r"
+            SELECT media_id
+            FROM recipe_manager.step_media
+            WHERE recipe_id = $1 AND step_id = $2
+            ORDER BY media_id
+            ",
+        )
+        .bind(recipe_id)
+        .bind(step_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(AppError::from)?;
+
+        let media_ids: Vec<MediaId> =
+            rows.iter().map(|row| MediaId::new(row.get("media_id"))).collect();
+
+        Ok(media_ids)
     }
 }
 

@@ -5,7 +5,7 @@ pub mod mocks {
     use std::sync::{Arc, Mutex};
 
     use crate::domain::{
-        entities::{Media, MediaId, UserId},
+        entities::{IngredientId, Media, MediaId, RecipeId, StepId, UserId},
         repositories::MediaRepository,
         value_objects::ContentHash,
     };
@@ -87,6 +87,35 @@ pub mod mocks {
         async fn exists_by_content_hash(&self, hash: &ContentHash) -> Result<bool, Self::Error> {
             let storage = self.storage.lock().unwrap();
             Ok(storage.values().any(|m| &m.content_hash == hash))
+        }
+
+        async fn find_media_ids_by_recipe(
+            &self,
+            _recipe_id: RecipeId,
+        ) -> Result<Vec<MediaId>, Self::Error> {
+            // Mock implementation returns empty list
+            // In real tests, you would populate this with test data
+            Ok(vec![])
+        }
+
+        async fn find_media_ids_by_recipe_ingredient(
+            &self,
+            _recipe_id: RecipeId,
+            _ingredient_id: IngredientId,
+        ) -> Result<Vec<MediaId>, Self::Error> {
+            // Mock implementation returns empty list
+            // In real tests, you would populate this with test data
+            Ok(vec![])
+        }
+
+        async fn find_media_ids_by_recipe_step(
+            &self,
+            _recipe_id: RecipeId,
+            _step_id: StepId,
+        ) -> Result<Vec<MediaId>, Self::Error> {
+            // Mock implementation returns empty list
+            // In real tests, you would populate this with test data
+            Ok(vec![])
         }
     }
 }
