@@ -382,6 +382,10 @@ mod tests {
                 None => Err(StorageError::FileNotFound { path: hash.as_str().to_string() }),
             }
         }
+
+        async fn health_check(&self) -> Result<(), StorageError> {
+            Ok(())
+        }
     }
 
     // Test app state for handler testing

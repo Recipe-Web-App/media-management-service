@@ -273,6 +273,10 @@ mod tests {
                 None => Err(StorageError::FileNotFound { path: hash.as_str().to_string() }),
             }
         }
+
+        async fn health_check(&self) -> Result<(), StorageError> {
+            Ok(())
+        }
     }
 
     fn create_test_media(id: MediaId, status: ProcessingStatus) -> Media {

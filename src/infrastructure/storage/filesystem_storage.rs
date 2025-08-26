@@ -137,6 +137,56 @@ impl FileStorage for FilesystemStorage {
             last_modified: metadata.modified().unwrap_or(std::time::SystemTime::UNIX_EPOCH),
         })
     }
+
+    async fn health_check(&self) -> Result<(), StorageError> {
+        // Check if base directory exists and is accessible
+        if !self.base_path.exists() {
+            return Err(StorageError::FileNotFound {
+                path: self.base_path.to_string_lossy().to_string(),
+            });
+        }
+
+        // Check if base path is a directory
+        let metadata = fs::metadata(&self.base_path).await?;
+        if !metadata.is_dir() {
+            return Err(StorageError::InvalidPath {
+                path: format!("{} is not a directory", self.base_path.display()),
+            });
+        }
+
+        // Test write permissions by creating a temporary test file
+        let test_filename = format!(".health_check_{}", uuid::Uuid::new_v4());
+        let test_path = self.base_path.join(&test_filename);
+
+        // Try to create and write to test file
+        match fs::File::create(&test_path).await {
+            Ok(mut file) => {
+                // Try to write test content
+                if let Err(e) = file.write_all(b"health_check").await {
+                    return Err(StorageError::IoError {
+                        message: format!("Write test failed: {e}"),
+                    });
+                }
+
+                // Try to flush to ensure write succeeds
+                if let Err(e) = file.flush().await {
+                    return Err(StorageError::IoError {
+                        message: format!("Flush test failed: {e}"),
+                    });
+                }
+            }
+            Err(e) => {
+                return Err(StorageError::IoError {
+                    message: format!("Write permission test failed: {e}"),
+                });
+            }
+        }
+
+        // Clean up test file (ignore errors as cleanup is best effort)
+        let _ = fs::remove_file(&test_path).await;
+
+        Ok(())
+    }
 }
 
 impl FilesystemStorage {
@@ -296,5 +346,93 @@ mod tests {
         let path = storage.get_path(&hash);
         assert!(path.contains("ab/cd/ef"));
         assert!(path.contains("abcdef1234567890"));
+    }
+
+    #[tokio::test]
+    async fn test_health_check_healthy_storage() {
+        let temp_dir = TempDir::new().unwrap();
+        let storage = FilesystemStorage::new(temp_dir.path());
+
+        // Health check should pass for valid, writable directory
+        let result = storage.health_check().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_health_check_missing_directory() {
+        // Use a path that doesn't exist
+        let non_existent_path = "/this/path/should/not/exist/test";
+        let storage = FilesystemStorage::new(non_existent_path);
+
+        let result = storage.health_check().await;
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            StorageError::FileNotFound { path } => {
+                assert!(path.contains("this/path/should/not/exist"));
+            }
+            _ => panic!("Expected FileNotFound error"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_health_check_file_instead_of_directory() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Create a regular file
+        let file_path = temp_dir.path().join("test_file");
+        tokio::fs::write(&file_path, b"test content").await.unwrap();
+
+        // Try to use the file as a storage directory
+        let storage = FilesystemStorage::new(&file_path);
+
+        let result = storage.health_check().await;
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            StorageError::InvalidPath { path } => {
+                assert!(path.contains("is not a directory"));
+            }
+            _ => panic!("Expected InvalidPath error"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_health_check_write_permissions() {
+        let temp_dir = TempDir::new().unwrap();
+        let storage = FilesystemStorage::new(temp_dir.path());
+
+        // Health check should create and clean up a test file
+        let result = storage.health_check().await;
+        assert!(result.is_ok());
+
+        // Verify no health check files are left behind
+        let mut entries = tokio::fs::read_dir(temp_dir.path()).await.unwrap();
+        let mut found_health_files = false;
+        while let Some(entry) = entries.next_entry().await.unwrap() {
+            if entry.file_name().to_string_lossy().starts_with(".health_check_") {
+                found_health_files = true;
+                break;
+            }
+        }
+        assert!(!found_health_files, "Health check should clean up test files");
+    }
+
+    #[tokio::test]
+    async fn test_health_check_concurrent_access() {
+        let temp_dir = TempDir::new().unwrap();
+        let storage = FilesystemStorage::new(temp_dir.path());
+
+        // Run multiple health checks concurrently
+        let mut handles = vec![];
+        for _ in 0..5 {
+            let storage_clone = storage.clone();
+            let handle = tokio::spawn(async move { storage_clone.health_check().await });
+            handles.push(handle);
+        }
+
+        // All should succeed
+        for handle in handles {
+            let result = handle.await.unwrap();
+            assert!(result.is_ok());
+        }
     }
 }
