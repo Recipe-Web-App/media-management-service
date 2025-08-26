@@ -19,6 +19,18 @@ impl PostgreSqlMediaRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
+
+    /// Health check for database connectivity
+    ///
+    /// Performs a simple query to verify database connectivity and responsiveness.
+    /// Returns `Ok(())` if database is accessible, `Err(AppError)` otherwise.
+    pub async fn health_check(&self) -> Result<(), AppError> {
+        sqlx::query("SELECT 1")
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| AppError::Database { message: format!("Health check failed: {e}") })?;
+        Ok(())
+    }
 }
 
 #[async_trait]

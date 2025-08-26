@@ -4,7 +4,7 @@ use axum::{
 };
 
 use crate::{
-    infrastructure::http::{health_check, readiness_check_no_db},
+    infrastructure::http::{health_check, health_check_with_dependencies, readiness_check_no_db},
     presentation::handlers::{self, media::AppState},
 };
 
@@ -21,7 +21,7 @@ pub fn create_routes() -> Router {
 /// Create media management service routes with state
 fn media_management_routes() -> Router<AppState> {
     Router::new()
-        .route("/health", get(health_check))
+        .route("/health", get(health_check_with_dependencies))
         .route("/ready", get(readiness_check_no_db))
         .nest("/media", media_routes())
 }
@@ -121,6 +121,10 @@ mod tests {
         > {
             use crate::infrastructure::storage::StorageError;
             Err(StorageError::FileNotFound { path: "mock".to_string() })
+        }
+
+        async fn health_check(&self) -> Result<(), crate::infrastructure::storage::StorageError> {
+            Ok(())
         }
     }
 

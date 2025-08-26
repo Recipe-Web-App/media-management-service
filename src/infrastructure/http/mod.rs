@@ -1,6 +1,6 @@
-use axum::http::HeaderValue;
+use axum::http::{HeaderValue, StatusCode};
 use axum::{
-    extract::DefaultBodyLimit,
+    extract::{DefaultBodyLimit, State},
     http::{header, Method},
     response::Json,
     Router,
@@ -22,7 +22,7 @@ use crate::{
     infrastructure::{
         config::AppConfig,
         persistence::{Database, PostgreSqlMediaRepository},
-        storage::FilesystemStorage,
+        storage::{FileStorage, FilesystemStorage},
     },
     presentation::{
         handlers::media::AppState,
@@ -84,7 +84,112 @@ pub fn create_app(config: &AppConfig, database: Option<&Database>) -> Router {
     }
 }
 
-/// Health check endpoint for Kubernetes liveness probe
+/// Comprehensive health check endpoint that validates all system dependencies
+///
+/// Checks the following components:
+/// - Database connectivity (`PostgreSQL`)
+/// - Storage accessibility (filesystem paths and permissions)
+/// - Service basic functionality
+///
+/// Returns HTTP 200 with status "healthy" or "degraded" when service can operate
+/// Returns HTTP 503 with status "unhealthy" when service cannot operate
+///
+/// Response format:
+/// ```json
+/// {
+///   "status": "healthy|degraded|unhealthy",
+///   "timestamp": "2025-01-15T10:30:00Z",
+///   "service": "media-management-service",
+///   "version": "0.1.0",
+///   "checks": {
+///     "database": {"status": "healthy", "response_time_ms": 5},
+///     "storage": {"status": "healthy", "path": "/app/media", "writable": true},
+///     "overall": "healthy"
+///   }
+/// }
+/// ```
+///
+/// Timeouts: Each check has a 2-second timeout to prevent hanging
+pub async fn health_check_with_dependencies(
+    State(app_state): State<AppState>,
+) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+    use std::time::{Duration, Instant};
+    use tokio::time::timeout;
+
+    let start_time = Instant::now();
+    let check_timeout = Duration::from_secs(2);
+
+    // Check database health
+    let database_check = timeout(check_timeout, async {
+        let check_start = Instant::now();
+        let result = app_state.repository.health_check().await;
+        let response_time = check_start.elapsed().as_millis() as u64;
+        (result, response_time)
+    })
+    .await;
+
+    let (database_status, database_response_time, database_healthy) = match database_check {
+        Ok((Ok(()), response_time)) => ("healthy", response_time, true),
+        Ok((Err(_), response_time)) => ("unhealthy", response_time, false),
+        Err(_) => ("timeout", 2000, false), // Timeout occurred
+    };
+
+    // Check storage health
+    let storage_check = timeout(check_timeout, async {
+        let check_start = Instant::now();
+        let result = app_state.storage.health_check().await;
+        let response_time = check_start.elapsed().as_millis() as u64;
+        (result, response_time)
+    })
+    .await;
+
+    let (storage_status, storage_response_time, storage_healthy) = match storage_check {
+        Ok((Ok(()), response_time)) => ("healthy", response_time, true),
+        Ok((Err(_), response_time)) => ("unhealthy", response_time, false),
+        Err(_) => ("timeout", 2000, false), // Timeout occurred
+    };
+
+    // Determine overall health status
+    let overall_status = if database_healthy && storage_healthy {
+        "healthy"
+    } else if database_healthy || storage_healthy {
+        "degraded" // At least one component is working
+    } else {
+        "unhealthy"
+    };
+
+    let total_response_time = start_time.elapsed().as_millis() as u64;
+
+    let response = json!({
+        "status": overall_status,
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+        "service": "media-management-service",
+        "version": env!("CARGO_PKG_VERSION"),
+        "response_time_ms": total_response_time,
+        "checks": {
+            "database": {
+                "status": database_status,
+                "response_time_ms": database_response_time
+            },
+            "storage": {
+                "status": storage_status,
+                "response_time_ms": storage_response_time
+            },
+            "overall": overall_status
+        }
+    });
+
+    // Return appropriate HTTP status code
+    match overall_status {
+        "healthy" | "degraded" => Ok((StatusCode::OK, Json(response))),
+        _ => Err((StatusCode::SERVICE_UNAVAILABLE, Json(response))),
+    }
+}
+
+/// Basic health check endpoint (backward compatibility)
+///
+/// This is the original simple health check that always returns "healthy".
+/// Use `health_check_with_dependencies` for production deployments.
 pub async fn health_check() -> Json<Value> {
     Json(json!({
         "status": "healthy",
@@ -295,7 +400,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_health_check_endpoint() {
+    async fn test_health_check_endpoint_basic() {
         let response = health_check().await;
         let json_value = response.0;
 
@@ -305,6 +410,9 @@ mod tests {
         assert_eq!(json_value["status"], "healthy");
         assert_eq!(json_value["service"], "media-management-service");
     }
+
+    // Note: Full integration tests with dependencies are in tests/integration/health_check_test.rs
+    // These unit tests focus on the health check handler logic
 
     #[tokio::test]
     async fn test_not_found_handler() {

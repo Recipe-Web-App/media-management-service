@@ -59,6 +59,19 @@ pub trait FileStorage: Send + Sync {
 
     /// Get metadata about a stored file
     async fn metadata(&self, hash: &ContentHash) -> Result<FileMetadata, StorageError>;
+
+    /// Check storage system health
+    ///
+    /// Validates that the storage system is accessible and operational.
+    /// This includes checking directory access, write permissions, and basic functionality.
+    ///
+    /// # Returns
+    /// - `Ok(())` if storage is healthy and fully operational
+    /// - `Err(StorageError)` if storage has issues that prevent normal operation
+    ///
+    /// # Timeout
+    /// Implementation should complete within 2 seconds to avoid hanging health checks
+    async fn health_check(&self) -> Result<(), StorageError>;
 }
 
 /// File metadata information

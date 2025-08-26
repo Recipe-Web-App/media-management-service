@@ -32,6 +32,58 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Health Check**: `http://media-management.local/api/v1/media-management/health`
 - **Readiness Check**: `http://media-management.local/api/v1/media-management/ready`
 
+#### Health Check System
+
+The service provides comprehensive health monitoring with dependency validation:
+
+**Endpoint**: `GET /api/v1/media-management/health`
+
+**Response Format**:
+
+```json
+{
+  "status": "healthy|degraded|unhealthy",
+  "timestamp": "2025-01-15T10:30:00Z",
+  "service": "media-management-service",
+  "version": "0.1.0",
+  "response_time_ms": 25,
+  "checks": {
+    "database": {
+      "status": "healthy",
+      "response_time_ms": 5
+    },
+    "storage": {
+      "status": "healthy",
+      "response_time_ms": 3
+    },
+    "overall": "healthy"
+  }
+}
+```
+
+**Health Status Levels**:
+
+- `healthy`: All dependencies are operational
+- `degraded`: At least one dependency is working (service partially functional)
+- `unhealthy`: All critical dependencies are failing
+
+**HTTP Status Codes**:
+
+- `200 OK`: Service is healthy or degraded (can still serve requests)
+- `503 Service Unavailable`: Service is unhealthy (cannot serve requests)
+
+**Dependency Checks**:
+
+- **Database**: Tests PostgreSQL connectivity with `SELECT 1` query
+- **Storage**: Validates filesystem access, directory existence, and write permissions
+- **Timeouts**: Each check has 2-second timeout to prevent hanging
+
+**Kubernetes Integration**:
+
+- Use for liveness probes to restart failing containers
+- Use for readiness probes to control traffic routing
+- Supports graceful degradation scenarios
+
 ### Testing & Quality
 
 - `cargo test` - Run all tests (unit and integration)
