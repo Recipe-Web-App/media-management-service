@@ -40,4 +40,10 @@ fn media_routes() -> Router<AppState> {
         .route("/", get(handlers::media::list_media))
         .route("/{id}", get(handlers::media::get_media))
         .route("/{id}/download", get(handlers::media::download_media))
+        .route("/recipe/{recipe_id}", get(handlers::media::get_media_by_recipe))
+        .route(
+            "/recipe/{recipe_id}/ingredient/{ingredient_id}",
+            get(handlers::media::get_media_by_ingredient),
+        )
+        .route("/recipe/{recipe_id}/step/{step_id}", get(handlers::media::get_media_by_step))
 }

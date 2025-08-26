@@ -110,10 +110,10 @@ Upload a new media file to the system.
 
 ```json
 {
-  "media_id": "550e8400-e29b-41d4-a716-446655440000",
+  "media_id": 123,
   "content_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "processing_status": "Pending",
-  "upload_url": "https://example.com/media/550e8400-e29b-41d4-a716-446655440000"
+  "upload_url": "https://example.com/media/123"
 }
 ```
 
@@ -155,7 +155,7 @@ GET /media/?limit=10&offset=0&status=Complete
 ```json
 [
   {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "id": 123,
     "content_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "original_filename": "example.jpg",
     "media_type": {
@@ -185,12 +185,12 @@ Retrieve detailed information about a specific media file.
 
 **Path Parameters:**
 
-- `id` (UUID) - The unique identifier of the media file
+- `id` (integer) - The unique identifier of the media file
 
 **Example Request:**
 
 ```http
-GET /media/550e8400-e29b-41d4-a716-446655440000
+GET /media/123
 ```
 
 **Response:**
@@ -210,7 +210,7 @@ GET /media/550e8400-e29b-41d4-a716-446655440000
 
 ```json
 {
-  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "id": 123,
   "content_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "original_filename": "example.jpg",
   "media_type": {
@@ -240,12 +240,12 @@ Download the actual media file binary data.
 
 **Path Parameters:**
 
-- `id` (UUID) - The unique identifier of the media file
+- `id` (integer) - The unique identifier of the media file
 
 **Example Request:**
 
 ```http
-GET /media/550e8400-e29b-41d4-a716-446655440000/download
+GET /media/123/download
 ```
 
 **Response:**
@@ -265,6 +265,104 @@ GET /media/550e8400-e29b-41d4-a716-446655440000/download
 
 - Content-Type: Based on media type (e.g., `image/jpeg`, `video/mp4`)
 - Body: Binary file data
+
+---
+
+### Get Media IDs by Recipe
+
+**GET** `/media/recipe/{recipe_id}`
+
+Retrieve media IDs associated with a specific recipe.
+
+**Status**: ✅ Implemented
+
+**Path Parameters:**
+
+- `recipe_id` (integer) - The unique identifier of the recipe
+
+**Example Request:**
+
+```http
+GET /media/recipe/123
+```
+
+**Response:**
+
+```json
+[1, 2, 3]
+```
+
+**Status Codes:**
+
+- `200 OK` - Returns array of media IDs
+- `400 Bad Request` - Invalid recipe ID
+- `500 Internal Server Error` - Database error
+
+---
+
+### Get Media IDs by Recipe Ingredient
+
+**GET** `/media/recipe/{recipe_id}/ingredient/{ingredient_id}`
+
+Retrieve media IDs associated with a specific ingredient in a recipe.
+
+**Status**: ✅ Implemented
+
+**Path Parameters:**
+
+- `recipe_id` (integer) - The unique identifier of the recipe
+- `ingredient_id` (integer) - The unique identifier of the ingredient
+
+**Example Request:**
+
+```http
+GET /media/recipe/123/ingredient/456
+```
+
+**Response:**
+
+```json
+[4, 5]
+```
+
+**Status Codes:**
+
+- `200 OK` - Returns array of media IDs
+- `400 Bad Request` - Invalid recipe or ingredient ID
+- `500 Internal Server Error` - Database error
+
+---
+
+### Get Media IDs by Recipe Step
+
+**GET** `/media/recipe/{recipe_id}/step/{step_id}`
+
+Retrieve media IDs associated with a specific step in a recipe.
+
+**Status**: ✅ Implemented
+
+**Path Parameters:**
+
+- `recipe_id` (integer) - The unique identifier of the recipe
+- `step_id` (integer) - The unique identifier of the step
+
+**Example Request:**
+
+```http
+GET /media/recipe/123/step/789
+```
+
+**Response:**
+
+```json
+[6, 7, 8]
+```
+
+**Status Codes:**
+
+- `200 OK` - Returns array of media IDs
+- `400 Bad Request` - Invalid recipe or step ID
+- `500 Internal Server Error` - Database error
 
 ---
 
@@ -365,6 +463,10 @@ All endpoints follow a consistent error response format:
 - Data models and DTOs
 - Basic routing structure
 - Comprehensive test coverage
+- Recipe-related media query endpoints
+  - Get media IDs by recipe
+  - Get media IDs by recipe ingredient
+  - Get media IDs by recipe step
 
 ### 🚧 In Progress
 

@@ -187,9 +187,7 @@ paths:
           description: The unique identifier of the media file
           required: true
           schema:
-            type: string
-            format: uuid
-            example: "550e8400-e29b-41d4-a716-446655440000"
+            $ref: "#/components/schemas/MediaId"
       responses:
         "200":
           description: Media information (planned)
@@ -222,9 +220,7 @@ paths:
           description: The unique identifier of the media file
           required: true
           schema:
-            type: string
-            format: uuid
-            example: "550e8400-e29b-41d4-a716-446655440000"
+            $ref: "#/components/schemas/MediaId"
       responses:
         "200":
           description: Media file binary data (planned)
@@ -275,8 +271,153 @@ paths:
                 error: "Not Implemented"
                 message: "Media download functionality is not yet implemented"
 
+  /media/recipe/{recipe_id}:
+    get:
+      tags: [media]
+      summary: Get media IDs by recipe
+      description: |
+        Retrieve media IDs associated with a specific recipe.
+
+        Returns an array of media IDs that are linked to the recipe.
+      operationId: getMediaByRecipe
+      parameters:
+        - name: recipe_id
+          in: path
+          description: The unique identifier of the recipe
+          required: true
+          schema:
+            type: integer
+            format: int64
+            example: 123
+      responses:
+        "200":
+          description: List of media IDs for the recipe
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MediaId"
+              example: [1, 2, 3]
+        "400":
+          description: Invalid recipe ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /media/recipe/{recipe_id}/ingredient/{ingredient_id}:
+    get:
+      tags: [media]
+      summary: Get media IDs by recipe ingredient
+      description: |
+        Retrieve media IDs associated with a specific ingredient in a recipe.
+
+        Returns an array of media IDs that are linked to the ingredient.
+      operationId: getMediaByIngredient
+      parameters:
+        - name: recipe_id
+          in: path
+          description: The unique identifier of the recipe
+          required: true
+          schema:
+            type: integer
+            format: int64
+            example: 123
+        - name: ingredient_id
+          in: path
+          description: The unique identifier of the ingredient
+          required: true
+          schema:
+            type: integer
+            format: int64
+            example: 456
+      responses:
+        "200":
+          description: List of media IDs for the recipe ingredient
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MediaId"
+              example: [4, 5]
+        "400":
+          description: Invalid recipe or ingredient ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /media/recipe/{recipe_id}/step/{step_id}:
+    get:
+      tags: [media]
+      summary: Get media IDs by recipe step
+      description: |
+        Retrieve media IDs associated with a specific step in a recipe.
+
+        Returns an array of media IDs that are linked to the step.
+      operationId: getMediaByStep
+      parameters:
+        - name: recipe_id
+          in: path
+          description: The unique identifier of the recipe
+          required: true
+          schema:
+            type: integer
+            format: int64
+            example: 123
+        - name: step_id
+          in: path
+          description: The unique identifier of the step
+          required: true
+          schema:
+            type: integer
+            format: int64
+            example: 789
+      responses:
+        "200":
+          description: List of media IDs for the recipe step
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MediaId"
+              example: [6, 7, 8]
+        "400":
+          description: Invalid recipe or step ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
+    MediaId:
+      type: integer
+      format: int64
+      description: Unique identifier for media files (database BIGSERIAL)
+      example: 123
+
     HealthResponse:
       type: object
       required:
@@ -336,10 +477,7 @@ components:
         - updated_at
       properties:
         id:
-          type: string
-          format: uuid
-          description: Unique identifier for the media file
-          example: "550e8400-e29b-41d4-a716-446655440000"
+          $ref: "#/components/schemas/MediaId"
         content_hash:
           type: string
           pattern: "^[a-f0-9]{64}$"
@@ -484,10 +622,7 @@ components:
         - processing_status
       properties:
         media_id:
-          type: string
-          format: uuid
-          description: Unique identifier for the uploaded media
-          example: "550e8400-e29b-41d4-a716-446655440000"
+          $ref: "#/components/schemas/MediaId"
         content_hash:
           type: string
           pattern: "^[a-f0-9]{64}$"
@@ -500,7 +635,7 @@ components:
           format: uri
           nullable: true
           description: Optional direct URL to access the uploaded file
-          example: "https://example.com/media/550e8400-e29b-41d4-a716-446655440000"
+          example: "https://example.com/media/123"
 
     ErrorResponse:
       type: object
@@ -528,9 +663,7 @@ components:
       description: The unique identifier of the media file
       required: true
       schema:
-        type: string
-        format: uuid
-        example: "550e8400-e29b-41d4-a716-446655440000"
+        $ref: "#/components/schemas/MediaId"
 
   responses:
     NotFound:
