@@ -116,6 +116,40 @@ repos:
         pass_filenames: false
         args: []
 
+      # Code coverage enforcement (80% minimum threshold)
+      - id: coverage-check
+        name: Code Coverage Check (80% minimum)
+        entry: >-
+          sh -c '
+          echo "🔍 Checking code coverage...";
+          if ! command -v cargo-llvm-cov >/dev/null 2>&1; then
+            echo "❌ cargo-llvm-cov not installed. Installing...";
+            cargo install cargo-llvm-cov || exit 1;
+          fi;
+          echo "📊 Running coverage analysis...";
+          COVERAGE_OUTPUT=$(cargo llvm-cov 2>&1);
+          COVERAGE_PERCENT=$(echo "$COVERAGE_OUTPUT" | grep "^TOTAL" | awk "{print \$4}" | sed "s/%//");
+          if [ -z "$COVERAGE_PERCENT" ]; then
+            echo "❌ Failed to parse coverage output";
+            echo "$COVERAGE_OUTPUT";
+            exit 1;
+          fi;
+          echo "📈 Current coverage: ${COVERAGE_PERCENT}%";
+          if [ "$(echo "$COVERAGE_PERCENT >= 80" | bc 2>/dev/null ||
+                 python3 -c "print($COVERAGE_PERCENT >= 80)")" = "True" ] ||
+             [ "$(echo "$COVERAGE_PERCENT >= 80" | bc)" = "1" ]; then
+            echo "✅ Coverage check passed: ${COVERAGE_PERCENT}% >= 80%";
+          else
+            echo "❌ Coverage check failed: ${COVERAGE_PERCENT}% < 80%";
+            echo "💡 Run tests to improve coverage: cargo test && cargo llvm-cov";
+            exit 1;
+          fi
+          '
+        language: system
+        types: [rust]
+        pass_filenames: false
+        stages: [pre-commit]
+
 # Global configuration
 default_stages: [pre-commit]
 fail_fast: false # Run all hooks even if one fails to get complete feedback

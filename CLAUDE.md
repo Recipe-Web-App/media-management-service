@@ -72,8 +72,14 @@ This project uses pre-commit hooks that automatically run:
 - `cargo fmt --all` for code formatting
 - `cargo clippy` with strict linting (warnings treated as errors)
 - `cargo deny check` for license and dependency policy enforcement
+- **`coverage-check`** - Enforces 80% minimum test coverage threshold using cargo-llvm-cov
 
 Run `pre-commit run --all-files` to manually execute all hooks.
+
+**Coverage Enforcement**:
+The pre-commit hook checks that test coverage is at least 80%.
+If coverage drops below this threshold, the commit is blocked.
+You will receive guidance on how to improve coverage.
 
 ## Architecture Overview
 

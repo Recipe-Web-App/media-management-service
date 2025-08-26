@@ -69,5 +69,109 @@ pub struct FileMetadata {
     pub last_modified: std::time::SystemTime,
 }
 
-// Mock removed due to complexity with generic types
-// Integration tests with real storage are more appropriate for this trait
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::SystemTime;
+
+    #[test]
+    fn test_storage_error_creation() {
+        let file_not_found = StorageError::FileNotFound { path: "test/path".to_string() };
+        assert!(file_not_found.to_string().contains("test/path"));
+
+        let io_error = StorageError::IoError { message: "Test IO error".to_string() };
+        assert!(io_error.to_string().contains("Test IO error"));
+
+        let invalid_path = StorageError::InvalidPath { path: "/invalid/path".to_string() };
+        assert!(invalid_path.to_string().contains("/invalid/path"));
+
+        let storage_full = StorageError::StorageFull;
+        assert!(storage_full.to_string().contains("Storage full"));
+
+        let hash_mismatch = StorageError::HashMismatch {
+            expected: "abc123".to_string(),
+            actual: "def456".to_string(),
+        };
+        assert!(hash_mismatch.to_string().contains("abc123"));
+        assert!(hash_mismatch.to_string().contains("def456"));
+    }
+
+    #[test]
+    fn test_storage_error_from_io_error() {
+        let io_error = std::io::Error::new(std::io::ErrorKind::NotFound, "File not found");
+        let storage_error = StorageError::from(io_error);
+
+        match storage_error {
+            StorageError::IoError { message } => {
+                assert!(message.contains("File not found"));
+            }
+            _ => panic!("Expected IoError variant"),
+        }
+    }
+
+    #[test]
+    fn test_file_metadata_creation() {
+        let now = SystemTime::now();
+        let metadata = FileMetadata {
+            size: 1024,
+            content_type: Some("image/jpeg".to_string()),
+            last_modified: now,
+        };
+
+        assert_eq!(metadata.size, 1024);
+        assert_eq!(metadata.content_type, Some("image/jpeg".to_string()));
+        assert_eq!(metadata.last_modified, now);
+    }
+
+    #[test]
+    fn test_file_metadata_without_content_type() {
+        let now = SystemTime::now();
+        let metadata = FileMetadata { size: 2048, content_type: None, last_modified: now };
+
+        assert_eq!(metadata.size, 2048);
+        assert_eq!(metadata.content_type, None);
+        assert_eq!(metadata.last_modified, now);
+    }
+
+    #[test]
+    fn test_file_metadata_clone() {
+        let now = SystemTime::now();
+        let metadata = FileMetadata {
+            size: 512,
+            content_type: Some("text/plain".to_string()),
+            last_modified: now,
+        };
+
+        let cloned_metadata = metadata.clone();
+        assert_eq!(metadata.size, cloned_metadata.size);
+        assert_eq!(metadata.content_type, cloned_metadata.content_type);
+        assert_eq!(metadata.last_modified, cloned_metadata.last_modified);
+    }
+
+    #[test]
+    fn test_storage_error_debug() {
+        let error = StorageError::FileNotFound { path: "debug/test".to_string() };
+        let debug_str = format!("{error:?}");
+        assert!(debug_str.contains("FileNotFound"));
+        assert!(debug_str.contains("debug/test"));
+    }
+
+    #[test]
+    fn test_file_metadata_debug() {
+        let now = SystemTime::now();
+        let metadata = FileMetadata {
+            size: 1024,
+            content_type: Some("image/png".to_string()),
+            last_modified: now,
+        };
+
+        let debug_str = format!("{metadata:?}");
+        assert!(debug_str.contains("FileMetadata"));
+        assert!(debug_str.contains("1024"));
+        assert!(debug_str.contains("image/png"));
+    }
+
+    // Note: FileStorage trait tests would require mock implementations
+    // These are better suited for integration tests with concrete implementations
+    // The trait itself is tested through its implementations (FilesystemStorage)
+}
