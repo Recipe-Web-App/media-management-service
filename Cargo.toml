@@ -24,10 +24,10 @@ tracing-appender = "0.2.3"
 uuid = { version = "1.11.1", features = ["v4", "serde"] }
 validator = "0.20.0"
 jsonwebtoken = "9.3.0"
-axum-extra = { version = "0.9.5", features = ["typed-header"] }
+axum-extra = { version = "0.10.1", features = ["typed-header"] }
 metrics = "0.24.0"
 metrics-exporter-prometheus = "0.17.2"
-regex = "1.11.1"
+regex = "1.11.2"
 multer = "3.1.0"
 sha2 = "0.10.8"
 mime = "0.3.0"
