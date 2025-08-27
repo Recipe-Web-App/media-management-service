@@ -37,6 +37,18 @@ impl TestApp {
         TestResponse::new(response).await
     }
 
+    pub async fn post_multipart(&self, path: &str, body: Body, content_type: &str) -> TestResponse {
+        let request = Request::builder()
+            .uri(path)
+            .method("POST")
+            .header("content-type", content_type)
+            .body(body)
+            .unwrap();
+
+        let response = self.router.clone().oneshot(request).await.unwrap();
+        TestResponse::new(response).await
+    }
+
     pub async fn put(&self, path: &str, body: Body) -> TestResponse {
         let request = Request::builder()
             .uri(path)

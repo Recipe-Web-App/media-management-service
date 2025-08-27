@@ -158,45 +158,123 @@ Kubernetes readiness probe endpoint with binary ready/not-ready status.
 
 **POST** `/media/`
 
-Upload a new media file to the system.
+Upload a new media file to the system with automatic content-addressable storage and deduplication.
 
-**Status**: 🚧 Not Implemented
+**Status**: ✅ Implemented
 
 **Request Headers:**
 
-- `Content-Type: multipart/form-data` (planned)
+- `Content-Type: multipart/form-data` (required)
 
-**Request Body:** (planned)
+**Request Body:**
+
+Multipart form data with the following fields:
+
+- `file` (required): The file to upload
+  - Must include filename in the multipart field
+  - Content-Type is automatically detected from file content
+  - Supported formats: JPEG, PNG, WebP, AVIF, GIF, MP4, WebM
+- `filename` (optional): Alternative way to specify filename if not in file field
+
+**File Size Limits:**
+
+- Default: Configurable via `max_file_size` (typically 10MB)
+- Files exceeding the limit will be rejected with 400 Bad Request
+
+**Example Request:**
+
+```bash
+curl -X POST "http://localhost:3000/api/v1/media-management/media/" \
+  -F "file=@example.jpg;type=image/jpeg"
+```
+
+**Successful Response:**
 
 ```json
 {
-  "filename": "example.jpg"
+  "media_id": 123,
+  "content_hash": "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+  "processing_status": "Pending",
+  "upload_url": null
 }
 ```
 
-**Response:**
+**Response Fields:**
+
+- `media_id`: Unique database-assigned identifier (integer)
+- `content_hash`: SHA-256 hash of file content (64-character hex string)
+- `processing_status`: Current processing status (`"Pending"`, `"Processing"`, `"Complete"`, `"Failed"`)
+- `upload_url`: Direct access URL (currently null, reserved for future use)
+
+**Error Responses:**
+
+**400 Bad Request - No file data:**
 
 ```json
 {
-  "error": "Not Implemented",
-  "message": "Media upload functionality is not yet implemented"
+  "error": "Bad Request",
+  "message": "No file data provided"
+}
+```
+
+**400 Bad Request - File too large:**
+
+```json
+{
+  "error": "Bad Request",
+  "message": "File too large: exceeds maximum size limit of 10485760 bytes"
+}
+```
+
+**400 Bad Request - Invalid content type:**
+
+```json
+{
+  "error": "Bad Request",
+  "message": "Content type validation failed: unsupported file format"
+}
+```
+
+**500 Internal Server Error - Storage/Database failure:**
+
+```json
+{
+  "error": "Internal Server Error",
+  "message": "Failed to save media metadata: database connection failed"
 }
 ```
 
 **Status Codes:**
 
-- `501 Not Implemented` - Endpoint not yet implemented
+- `200 OK` - File uploaded successfully (includes deduplication cases)
+- `400 Bad Request` - Invalid request (missing file, too large, unsupported format)
+- `500 Internal Server Error` - Server-side failure (database, storage issues)
 
-**Planned Response** (when implemented):
+**Content Deduplication:**
 
-```json
-{
-  "media_id": 123,
-  "content_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-  "processing_status": "Pending",
-  "upload_url": "https://example.com/media/123"
-}
-```
+The service implements automatic content deduplication:
+
+1. **Hash Calculation**: SHA-256 hash computed for uploaded file content
+2. **Duplicate Detection**: If hash already exists in database, existing media is returned
+3. **Storage Optimization**: Duplicate files are not stored again
+4. **Response Consistency**: Same response format whether file is new or duplicate
+
+**Content-Addressable Storage:**
+
+Files are stored using content-addressable paths:
+
+- **Path Format**: `{first_2_hash_chars}/{next_2_chars}/{next_2_chars}/{full_hash}`
+- **Example**: `ab/cd/ef/abcdef123456...`
+- **Benefits**: Natural deduplication, efficient retrieval, path predictability
+
+**Processing Status Flow:**
+
+1. **Upload Complete** → Status: `"Pending"`
+2. **Future**: Async processing → Status: `"Processing"`
+3. **Future**: Processing complete → Status: `"Complete"`
+4. **Future**: Processing failed → Status: `"Failed"`
+
+_Note: Currently all uploads immediately receive `"Pending"` status. Async processing pipeline is planned for future releases._
 
 ---
 

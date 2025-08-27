@@ -113,13 +113,8 @@ where
         );
 
         // Save media metadata to database
-        let saved_media = match self.repository.save(&media).await {
-            Ok(()) => {
-                // Since save doesn't return the media with ID, we need to fetch it
-                // In a real implementation, the repository might return the saved entity
-                // For now, we'll create a response with a temporary ID
-                media
-            }
+        let media_id = match self.repository.save(&media).await {
+            Ok(id) => id,
             Err(e) => {
                 // If database save fails, try to clean up stored file
                 let _ = self.storage.delete(&content_hash).await;
@@ -131,14 +126,15 @@ where
         };
 
         tracing::info!(
-            "Media upload completed successfully for file: {}",
-            saved_media.original_filename
+            "Media upload completed successfully for file: {} with ID: {}",
+            media.original_filename,
+            media_id
         );
 
         Ok(UploadMediaResponse {
-            media_id: saved_media.id,
+            media_id,
             content_hash: content_hash.as_str().to_string(),
-            processing_status: saved_media.processing_status,
+            processing_status: media.processing_status,
             upload_url: None,
         })
     }

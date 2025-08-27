@@ -1,5 +1,5 @@
 use axum::{
-    routing::{get, post},
+    routing::{get, post, put},
     Router,
 };
 
@@ -24,10 +24,17 @@ fn media_management_routes() -> Router<AppState> {
 /// Create media-related routes with state
 fn media_routes() -> Router<AppState> {
     Router::new()
+        // Legacy direct upload endpoint (deprecated)
         .route("/", post(handlers::media::upload_media))
         .route("/", get(handlers::media::list_media))
+        // New presigned URL upload endpoints
+        .route("/upload-request", post(handlers::media::initiate_upload))
+        .route("/upload/{token}", put(handlers::media::upload_file))
+        // Status and retrieval endpoints
         .route("/{id}", get(handlers::media::get_media))
+        .route("/{id}/status", get(handlers::media::get_upload_status))
         .route("/{id}/download", get(handlers::media::download_media))
+        // Recipe-related endpoints
         .route("/recipe/{recipe_id}", get(handlers::media::get_media_by_recipe))
         .route(
             "/recipe/{recipe_id}/ingredient/{ingredient_id}",

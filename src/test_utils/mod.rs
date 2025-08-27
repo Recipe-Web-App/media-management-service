@@ -100,7 +100,7 @@ pub mod mocks {
     impl MediaRepository for InMemoryMediaRepository {
         type Error = AppError;
 
-        async fn save(&self, media: &Media) -> Result<(), Self::Error> {
+        async fn save(&self, media: &Media) -> Result<MediaId, Self::Error> {
             let mut storage = self.storage.lock().unwrap();
             let mut next_id = self.next_id.lock().unwrap();
 
@@ -110,8 +110,9 @@ pub mod mocks {
                 *next_id += 1;
             }
 
+            let assigned_id = media_to_save.id;
             storage.insert(media_to_save.id, media_to_save);
-            Ok(())
+            Ok(assigned_id)
         }
 
         async fn find_by_id(&self, id: MediaId) -> Result<Option<Media>, Self::Error> {

@@ -132,7 +132,7 @@ mod tests {
             async fn save(
                 &self,
                 _media: &crate::domain::entities::Media,
-            ) -> Result<(), Self::Error> {
+            ) -> Result<crate::domain::entities::MediaId, Self::Error> {
                 Err(AppError::Internal { message: "Database error".to_string() })
             }
 

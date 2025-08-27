@@ -361,6 +361,264 @@ paths:
                 error: "Not Implemented"
                 message: "Media download functionality is not yet implemented"
 
+  /media/upload-request:
+    post:
+      tags: [media]
+      summary: Initiate presigned upload session
+      description: |
+        Creates a presigned upload session for secure, UI-friendly file uploads with progress tracking.
+
+        **Features:**
+        - HMAC-SHA256 signed URLs for security
+        - 15-minute expiration by default
+        - File size and content type validation
+        - Dangerous file extension filtering
+        - Deduplication support
+
+        **Status**: ✅ Implemented
+      operationId: initiateUpload
+      requestBody:
+        description: Upload session initiation request
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InitiateUploadRequest"
+            example:
+              filename: "example.jpg"
+              content_type: "image/jpeg"
+              file_size: 1048576
+      responses:
+        "200":
+          description: Upload session created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InitiateUploadResponse"
+              example:
+                media_id: 123
+                upload_url: >
+                  http://localhost:3000/api/v1/media-management/media/upload/upload_abc123?signature=def456&expires=1704067200&size=1048576&type=image%2Fjpeg
+                upload_token: "upload_abc123"
+                expires_at: "2024-01-01T12:00:00Z"
+                status: "Pending"
+        "400":
+          description: Invalid request (file too large, dangerous extension, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                file_too_large:
+                  summary: File size exceeds limit
+                  value:
+                    error: "Bad Request"
+                    message: "File size 52428800 bytes exceeds maximum allowed size of 50000000 bytes"
+                dangerous_extension:
+                  summary: Dangerous file extension
+                  value:
+                    error: "Bad Request"
+                    message: "File type not allowed: malware.exe"
+                invalid_content_type:
+                  summary: Invalid content type format
+                  value:
+                    error: "Bad Request"
+                    message: "Content type format is invalid"
+
+  /media/upload/{token}:
+    put:
+      tags: [media]
+      summary: Upload file to presigned URL
+      description: |
+        Uploads the actual file content using the presigned URL from upload initiation.
+
+        **Security:**
+        - Validates HMAC signature for tampering protection
+        - Checks URL expiration timestamp
+        - Validates file size matches expectation
+        - Content type verification
+
+        **Status**: ✅ Implemented
+      operationId: uploadFile
+      parameters:
+        - name: token
+          in: path
+          description: Upload token from initiation response
+          required: true
+          schema:
+            type: string
+            pattern: "^upload_[a-zA-Z0-9]{32}$"
+            example: "upload_abc123def456"
+        - name: signature
+          in: query
+          description: HMAC signature for security validation
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-f0-9]{64}$"
+            example: "def456789abc123"
+        - name: expires
+          in: query
+          description: Unix timestamp for URL expiration
+          required: true
+          schema:
+            type: integer
+            format: int64
+            example: 1704067200
+        - name: size
+          in: query
+          description: Expected file size in bytes
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+            example: 1048576
+        - name: type
+          in: query
+          description: URL-encoded content type
+          required: true
+          schema:
+            type: string
+            example: "image%2Fjpeg"
+      requestBody:
+        description: Raw file data
+        required: true
+        content:
+          image/jpeg:
+            schema:
+              type: string
+              format: binary
+          image/png:
+            schema:
+              type: string
+              format: binary
+          image/webp:
+            schema:
+              type: string
+              format: binary
+          video/mp4:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: File uploaded and processing started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadMediaResponse"
+              example:
+                media_id: 123
+                content_hash: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+                processing_status: "Processing"
+                upload_url: null
+        "400":
+          description: Invalid signature, expired URL, or file size mismatch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                expired_url:
+                  summary: Upload URL has expired
+                  value:
+                    error: "Bad Request"
+                    message: "Upload URL has expired at 2024-01-01T11:00:00Z"
+                size_mismatch:
+                  summary: File size doesn't match expectation
+                  value:
+                    error: "Bad Request"
+                    message: "File size mismatch: expected 1048576 bytes, got 1024000 bytes"
+        "401":
+          description: Invalid or expired signature
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Unauthorized"
+                message: "Invalid upload signature"
+
+  /media/{id}/status:
+    get:
+      tags: [media]
+      summary: Get upload/processing status
+      description: |
+        Retrieves the current status of a media upload, including processing progress and any error information.
+
+        **Use Cases:**
+        - Poll upload progress after initiating presigned upload
+        - Check processing status after file upload
+        - Get error details if processing failed
+        - Retrieve download URL when processing complete
+
+        **Status**: ✅ Implemented
+      operationId: getUploadStatus
+      parameters:
+        - $ref: "#/components/parameters/MediaId"
+      responses:
+        "200":
+          description: Status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadStatusResponse"
+              examples:
+                pending:
+                  summary: Upload session created, awaiting file
+                  value:
+                    media_id: 123
+                    status: "Pending"
+                    progress: null
+                    error_message: null
+                    download_url: null
+                    processing_time_ms: null
+                    uploaded_at: null
+                    completed_at: null
+                processing:
+                  summary: File uploaded, currently processing
+                  value:
+                    media_id: 123
+                    status: "Processing"
+                    progress: 65
+                    error_message: null
+                    download_url: null
+                    processing_time_ms: null
+                    uploaded_at: "2024-01-01T12:00:00Z"
+                    completed_at: null
+                complete:
+                  summary: Processing finished successfully
+                  value:
+                    media_id: 123
+                    status: "Complete"
+                    progress: 100
+                    error_message: null
+                    download_url: "http://localhost:3000/api/v1/media-management/media/123/download"
+                    processing_time_ms: 2500
+                    uploaded_at: "2024-01-01T12:00:00Z"
+                    completed_at: "2024-01-01T12:00:02Z"
+                failed:
+                  summary: Processing failed with error
+                  value:
+                    media_id: 123
+                    status: "Failed"
+                    progress: null
+                    error_message: "Corrupted file header detected"
+                    download_url: null
+                    processing_time_ms: 1200
+                    uploaded_at: "2024-01-01T12:00:00Z"
+                    completed_at: "2024-01-01T12:00:01Z"
+        "404":
+          description: Media not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Not Found"
+                message: "Media with ID 123"
+
   /media/recipe/{recipe_id}:
     get:
       tags: [media]
@@ -780,6 +1038,116 @@ components:
           nullable: true
           description: Optional direct URL to access the uploaded file
           example: "https://example.com/media/123"
+
+    InitiateUploadRequest:
+      type: object
+      required:
+        - filename
+        - content_type
+        - file_size
+      properties:
+        filename:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Original filename (validated for security)
+          example: "example.jpg"
+        content_type:
+          type: string
+          pattern: "^[a-zA-Z0-9][a-zA-Z0-9!#$&\\-\\^_]*\/[a-zA-Z0-9][a-zA-Z0-9!#$&\\-\\^_.]*$"
+          description: MIME content type (must contain slash)
+          example: "image/jpeg"
+        file_size:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 52428800
+          description: File size in bytes (max 50MB default)
+          example: 1048576
+
+    InitiateUploadResponse:
+      type: object
+      required:
+        - media_id
+        - upload_url
+        - upload_token
+        - expires_at
+        - status
+      properties:
+        media_id:
+          $ref: "#/components/schemas/MediaId"
+        upload_url:
+          type: string
+          format: uri
+          description: Presigned URL for file upload with security parameters
+          example: >
+            http://localhost:3000/api/v1/media-management/media/upload/upload_abc123?signature=def456&expires=1704067200&size=1048576&type=image%2Fjpeg
+        upload_token:
+          type: string
+          pattern: "^upload_[a-zA-Z0-9]{32}$"
+          description: Unique token identifying the upload session
+          example: "upload_abc123def456"
+        expires_at:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when upload URL expires
+          example: "2024-01-01T12:00:00Z"
+        status:
+          type: string
+          enum: [Pending]
+          description: Initial status is always Pending
+          example: "Pending"
+
+    UploadStatusResponse:
+      type: object
+      required:
+        - media_id
+        - status
+      properties:
+        media_id:
+          $ref: "#/components/schemas/MediaId"
+        status:
+          type: string
+          enum: [Pending, Processing, Complete, Failed]
+          description: Current processing status
+          example: "Complete"
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+          description: Processing progress percentage (0-100)
+          example: 85
+        error_message:
+          type: string
+          nullable: true
+          description: Error description if status is Failed
+          example: "Corrupted file header detected"
+        download_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Download URL when processing complete
+          example: "http://localhost:3000/api/v1/media-management/media/123/download"
+        processing_time_ms:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+          description: Total processing time in milliseconds
+          example: 2500
+        uploaded_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: ISO 8601 timestamp when file was uploaded
+          example: "2024-01-01T12:00:00Z"
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: ISO 8601 timestamp when processing completed
+          example: "2024-01-01T12:00:02Z"
 
     ErrorResponse:
       type: object

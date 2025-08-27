@@ -2,9 +2,13 @@ use async_trait::async_trait;
 use tokio::io::AsyncRead;
 
 mod filesystem_storage;
+pub mod presigned_urls;
 pub mod utils;
 
 pub use filesystem_storage::FilesystemStorage;
+pub use presigned_urls::{
+    PresignedUrlConfig, PresignedUrlError, PresignedUrlService, UploadSession,
+};
 pub use utils::*;
 
 use crate::domain::value_objects::ContentHash;
