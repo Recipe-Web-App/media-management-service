@@ -295,6 +295,46 @@ paths:
                 error: "Not Found"
                 message: "Media not found"
 
+    delete:
+      tags: [media]
+      summary: Delete media file
+      description: |
+        Permanently delete a media file and its associated database record.
+
+        This operation removes both the file from storage and the metadata from the database.
+        The deletion is irreversible.
+
+        **Status**: ✅ Implemented
+      operationId: deleteMedia
+      parameters:
+        - name: id
+          in: path
+          description: The unique identifier of the media file to delete
+          required: true
+          schema:
+            $ref: "#/components/schemas/MediaId"
+      responses:
+        "204":
+          description: Media file successfully deleted
+        "404":
+          description: Media not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Not Found"
+                message: "Media with ID 123"
+        "500":
+          description: Internal server error during deletion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Internal Server Error"
+                message: "Failed to delete media file"
+
   /media/{id}/download:
     get:
       tags: [media]

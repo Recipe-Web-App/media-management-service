@@ -311,6 +311,86 @@ GET /media/123
 
 ---
 
+### Delete Media
+
+**DELETE** `/media/{id}`
+
+Permanently delete a media file and its associated database record. This operation removes both the file from storage
+and the metadata from the database.
+
+**Status**: ✅ Implemented
+
+**Path Parameters:**
+
+- `id` (integer) - The unique identifier of the media file to delete
+
+**Example Request:**
+
+```http
+DELETE /media/123
+```
+
+**Success Response:**
+
+```http
+HTTP/1.1 204 No Content
+```
+
+**Error Responses:**
+
+**Media Not Found:**
+
+```json
+{
+  "error": "Not Found",
+  "message": "Media with ID 123"
+}
+```
+
+**Internal Server Error:**
+
+```json
+{
+  "error": "Internal Server Error",
+  "message": "Failed to delete media file"
+}
+```
+
+**Status Codes:**
+
+- `204 No Content` - Media successfully deleted
+- `404 Not Found` - Media with specified ID not found
+- `500 Internal Server Error` - Storage or database operation failed
+
+**Security Considerations:**
+
+- Users can only delete media files they own (when authentication is implemented)
+- Content-addressable storage prevents path traversal attacks
+- Audit logging records all deletion operations
+- Operation continues even if storage deletion fails (handles pre-deleted files)
+
+**Storage Behavior:**
+
+- Files are permanently removed from the filesystem
+- Content deduplication is respected - files shared between multiple media records are preserved
+- Empty directories are cleaned up after file deletion
+- Graceful handling of partial failures (e.g., file deleted but database operation fails)
+
+**Example Usage:**
+
+```bash
+# Delete media with ID 123
+curl -X DELETE "http://localhost:3000/api/v1/media-management/media/123"
+
+# Using Kubernetes service URL
+curl -X DELETE "http://media-management.local/api/v1/media-management/media/123"
+
+# Verify deletion was successful (should return 404)
+curl "http://localhost:3000/api/v1/media-management/media/123"
+```
+
+---
+
 ### Download Media
 
 **GET** `/media/{id}/download`
