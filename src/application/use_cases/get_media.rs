@@ -12,14 +12,14 @@ use crate::{
 /// Use case for retrieving media metadata by ID
 pub struct GetMediaUseCase<R>
 where
-    R: MediaRepository,
+    R: MediaRepository + ?Sized,
 {
     repository: Arc<R>,
 }
 
 impl<R> GetMediaUseCase<R>
 where
-    R: MediaRepository,
+    R: MediaRepository + ?Sized,
 {
     /// Create a new get media use case
     pub fn new(repository: Arc<R>) -> Self {

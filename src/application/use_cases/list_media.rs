@@ -12,14 +12,14 @@ use crate::{
 /// Use case for listing media with pagination and filtering
 pub struct ListMediaUseCase<R>
 where
-    R: MediaRepository,
+    R: MediaRepository + ?Sized,
 {
     repository: Arc<R>,
 }
 
 impl<R> ListMediaUseCase<R>
 where
-    R: MediaRepository,
+    R: MediaRepository + ?Sized,
 {
     /// Create a new list media use case
     pub fn new(repository: Arc<R>) -> Self {

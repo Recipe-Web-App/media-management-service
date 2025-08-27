@@ -4,33 +4,21 @@ use axum::{
 };
 
 use crate::{
-    infrastructure::http::{health_check, health_check_with_dependencies, readiness_check_no_db},
+    infrastructure::http::{health_check_with_dependencies, readiness_check_with_dependencies},
     presentation::handlers::{self, media::AppState},
 };
 
 /// Create all application routes with application state
-pub fn create_routes_with_state(app_state: AppState) -> Router {
+pub fn create_routes(app_state: AppState) -> Router {
     Router::new().nest("/api/v1/media-management", media_management_routes()).with_state(app_state)
-}
-
-/// Create all application routes without state (backward compatibility)
-pub fn create_routes() -> Router {
-    Router::new().nest("/api/v1/media-management", media_management_routes_no_state())
 }
 
 /// Create media management service routes with state
 fn media_management_routes() -> Router<AppState> {
     Router::new()
         .route("/health", get(health_check_with_dependencies))
-        .route("/ready", get(readiness_check_no_db))
+        .route("/ready", get(readiness_check_with_dependencies))
         .nest("/media", media_routes())
-}
-
-/// Create media management service routes without state (backward compatibility)
-fn media_management_routes_no_state() -> Router {
-    Router::new().route("/health", get(health_check)).route("/ready", get(readiness_check_no_db))
-    // Note: media routes with actual functionality require state
-    // These will return not implemented errors
 }
 
 /// Create media-related routes with state
@@ -52,11 +40,6 @@ fn media_routes() -> Router<AppState> {
 mod tests {
     use super::*;
     use crate::infrastructure::storage::FileStorage;
-    use axum::{
-        body::Body,
-        http::{Method, Request, StatusCode},
-    };
-    use tower::ServiceExt;
 
     // Mock storage for route testing
     #[derive(Clone)]
@@ -135,19 +118,13 @@ mod tests {
 
     #[test]
     fn test_route_functions_exist() {
-        // Test that route creation functions exist and can be called
-        let routes = create_routes();
-
         // Test internal route functions
         let media_routes = media_routes();
         let media_mgmt_routes = media_management_routes();
-        let media_mgmt_routes_no_state = media_management_routes_no_state();
 
         // Test that routes are created successfully (basic structure test)
-        assert!(std::ptr::addr_of!(routes).is_aligned());
         assert!(std::ptr::addr_of!(media_routes).is_aligned());
         assert!(std::ptr::addr_of!(media_mgmt_routes).is_aligned());
-        assert!(std::ptr::addr_of!(media_mgmt_routes_no_state).is_aligned());
     }
 
     #[test]
@@ -229,20 +206,5 @@ mod tests {
 
         let result = storage.metadata(&hash).await;
         assert!(result.is_err());
-    }
-
-    #[tokio::test]
-    async fn test_routes_without_state_basic() {
-        let router = create_routes();
-
-        // Test health check endpoint (should work without state)
-        let request = Request::builder()
-            .method(Method::GET)
-            .uri("/api/v1/media-management/health")
-            .body(Body::empty())
-            .unwrap();
-
-        let response = router.oneshot(request).await.unwrap();
-        assert_eq!(response.status(), StatusCode::OK);
     }
 }

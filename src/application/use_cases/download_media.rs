@@ -13,8 +13,8 @@ use crate::{
 /// Use case for downloading media files
 pub struct DownloadMediaUseCase<R, S>
 where
-    R: MediaRepository,
-    S: FileStorage,
+    R: MediaRepository + ?Sized,
+    S: FileStorage + ?Sized,
 {
     repository: Arc<R>,
     storage: Arc<S>,
@@ -31,8 +31,8 @@ pub struct DownloadResponse {
 
 impl<R, S> DownloadMediaUseCase<R, S>
 where
-    R: MediaRepository,
-    S: FileStorage,
+    R: MediaRepository + ?Sized,
+    S: FileStorage + ?Sized,
 {
     /// Create a new download media use case
     pub fn new(repository: Arc<R>, storage: Arc<S>) -> Self {

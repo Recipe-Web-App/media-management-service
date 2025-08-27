@@ -11,14 +11,14 @@ use crate::{
 /// Use case for retrieving media IDs associated with a recipe ingredient
 pub struct GetMediaByIngredientUseCase<R>
 where
-    R: MediaRepository,
+    R: MediaRepository + ?Sized,
 {
     repository: Arc<R>,
 }
 
 impl<R> GetMediaByIngredientUseCase<R>
 where
-    R: MediaRepository,
+    R: MediaRepository + ?Sized,
 {
     /// Create a new get media by ingredient use case
     pub fn new(repository: Arc<R>) -> Self {

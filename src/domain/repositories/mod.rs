@@ -47,6 +47,12 @@ pub trait MediaRepository: Send + Sync {
         recipe_id: RecipeId,
         step_id: StepId,
     ) -> Result<Vec<MediaId>, Self::Error>;
+
+    /// Health check for repository connectivity
+    ///
+    /// Performs a simple check to verify repository is accessible and responsive.
+    /// Returns `Ok(())` if repository is accessible, `Err(Self::Error)` otherwise.
+    async fn health_check(&self) -> Result<(), Self::Error>;
 }
 
 // Mock implementation moved to test utilities
