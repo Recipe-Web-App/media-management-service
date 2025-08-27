@@ -7,8 +7,8 @@ use async_trait::async_trait;
 pub trait MediaRepository: Send + Sync {
     type Error: std::error::Error + Send + Sync + 'static;
 
-    /// Save a media entity
-    async fn save(&self, media: &Media) -> Result<(), Self::Error>;
+    /// Save a media entity and return the assigned database ID
+    async fn save(&self, media: &Media) -> Result<MediaId, Self::Error>;
 
     /// Find media by ID
     async fn find_by_id(&self, id: MediaId) -> Result<Option<Media>, Self::Error>;

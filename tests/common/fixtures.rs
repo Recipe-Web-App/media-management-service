@@ -67,10 +67,11 @@ impl Default for InMemoryMediaRepository {
 impl MediaRepository for InMemoryMediaRepository {
     type Error = MockRepositoryError;
 
-    async fn save(&self, media: &Media) -> Result<(), Self::Error> {
+    async fn save(&self, media: &Media) -> Result<MediaId, Self::Error> {
         let mut storage = self.storage.lock().unwrap();
+        let media_id = media.id;
         storage.insert(media.id, media.clone());
-        Ok(())
+        Ok(media_id)
     }
 
     async fn find_by_id(&self, id: MediaId) -> Result<Option<Media>, Self::Error> {
