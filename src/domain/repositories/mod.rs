@@ -1,5 +1,5 @@
 use crate::domain::entities::{IngredientId, Media, MediaId, RecipeId, StepId, UserId};
-use crate::domain::value_objects::ContentHash;
+use crate::domain::value_objects::{ContentHash, ProcessingStatus};
 use async_trait::async_trait;
 
 /// Repository trait for media persistence
@@ -18,6 +18,16 @@ pub trait MediaRepository: Send + Sync {
 
     /// Find all media uploaded by a specific user
     async fn find_by_user(&self, user_id: UserId) -> Result<Vec<Media>, Self::Error>;
+
+    /// Find media by user with cursor-based pagination
+    /// Returns a tuple of (`media_list`, `next_cursor`, `has_more`)
+    async fn find_by_user_paginated(
+        &self,
+        user_id: UserId,
+        cursor: Option<String>,
+        limit: u32,
+        status_filter: Option<ProcessingStatus>,
+    ) -> Result<(Vec<Media>, Option<String>, bool), Self::Error>;
 
     /// Update media entity
     async fn update(&self, media: &Media) -> Result<(), Self::Error>;

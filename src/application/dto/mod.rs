@@ -31,12 +31,39 @@ pub struct UploadMediaResponse {
     pub upload_url: Option<String>, // For direct file access
 }
 
-/// Query parameters for listing media
+/// Query parameters for paginated media listing
 #[derive(Debug, Clone, Deserialize)]
-pub struct ListMediaQuery {
+pub struct PaginatedMediaQuery {
+    /// Cursor for pagination (base64 encoded)
+    pub cursor: Option<String>,
+    /// Maximum number of items per page (default 50, max 100)
     pub limit: Option<u32>,
-    pub offset: Option<u32>,
+    /// Filter by processing status
     pub status: Option<ProcessingStatus>,
+}
+
+/// Pagination metadata for cursor-based pagination
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaginationInfo {
+    /// Cursor for the next page (if available)
+    pub next_cursor: Option<String>,
+    /// Cursor for the previous page (if available)
+    pub prev_cursor: Option<String>,
+    /// Total number of items in current page
+    pub page_size: u32,
+    /// Whether there are more items after this page
+    pub has_next: bool,
+    /// Whether there are items before this page
+    pub has_prev: bool,
+}
+
+/// Paginated response for media listing
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaginatedMediaResponse {
+    /// List of media items for current page
+    pub data: Vec<MediaDto>,
+    /// Pagination metadata
+    pub pagination: PaginationInfo,
 }
 
 #[cfg(test)]
@@ -141,47 +168,6 @@ mod tests {
     }
 
     #[test]
-    fn test_list_media_query_deserialization() {
-        let json = r#"{"limit": 10, "offset": 20, "status": "Complete"}"#;
-        let query: ListMediaQuery = serde_json::from_str(json).unwrap();
-
-        assert_eq!(query.limit, Some(10));
-        assert_eq!(query.offset, Some(20));
-        assert_eq!(query.status, Some(ProcessingStatus::Complete));
-    }
-
-    #[test]
-    fn test_list_media_query_partial() {
-        let json = r#"{"limit": 5}"#;
-        let query: ListMediaQuery = serde_json::from_str(json).unwrap();
-
-        assert_eq!(query.limit, Some(5));
-        assert_eq!(query.offset, None);
-        assert_eq!(query.status, None);
-    }
-
-    #[test]
-    fn test_list_media_query_empty() {
-        let json = r"{}";
-        let query: ListMediaQuery = serde_json::from_str(json).unwrap();
-
-        assert_eq!(query.limit, None);
-        assert_eq!(query.offset, None);
-        assert_eq!(query.status, None);
-    }
-
-    #[test]
-    fn test_list_media_query_with_failed_status() {
-        let json = r#"{"status": "Failed"}"#;
-        let query: ListMediaQuery = serde_json::from_str(json).unwrap();
-
-        match query.status {
-            Some(ProcessingStatus::Failed) => {}
-            _ => panic!("Expected Failed status"),
-        }
-    }
-
-    #[test]
     fn test_dto_clone_and_debug() {
         let dto = create_test_media_dto();
         let cloned = dto.clone();
@@ -192,5 +178,98 @@ mod tests {
         let debug_str = format!("{dto:?}");
         assert!(debug_str.contains("MediaDto"));
         assert!(debug_str.contains("test.jpg"));
+    }
+
+    #[test]
+    fn test_paginated_media_query_deserialization() {
+        let json = r#"{"cursor": "eyJpZCI6MTIzfQ==", "limit": 25, "status": "Complete"}"#;
+        let query: PaginatedMediaQuery = serde_json::from_str(json).unwrap();
+
+        assert_eq!(query.cursor, Some("eyJpZCI6MTIzfQ==".to_string()));
+        assert_eq!(query.limit, Some(25));
+        assert_eq!(query.status, Some(ProcessingStatus::Complete));
+    }
+
+    #[test]
+    fn test_paginated_media_query_partial() {
+        let json = r#"{"limit": 10}"#;
+        let query: PaginatedMediaQuery = serde_json::from_str(json).unwrap();
+
+        assert_eq!(query.cursor, None);
+        assert_eq!(query.limit, Some(10));
+        assert_eq!(query.status, None);
+    }
+
+    #[test]
+    fn test_pagination_info_serialization() {
+        let pagination = PaginationInfo {
+            next_cursor: Some("next123".to_string()),
+            prev_cursor: Some("prev123".to_string()),
+            page_size: 25,
+            has_next: true,
+            has_prev: true,
+        };
+
+        let json = serde_json::to_string(&pagination).unwrap();
+        let deserialized: PaginationInfo = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(pagination.next_cursor, deserialized.next_cursor);
+        assert_eq!(pagination.prev_cursor, deserialized.prev_cursor);
+        assert_eq!(pagination.page_size, deserialized.page_size);
+        assert_eq!(pagination.has_next, deserialized.has_next);
+        assert_eq!(pagination.has_prev, deserialized.has_prev);
+    }
+
+    #[test]
+    fn test_paginated_media_response_serialization() {
+        let dto = create_test_media_dto();
+        let pagination = PaginationInfo {
+            next_cursor: Some("next456".to_string()),
+            prev_cursor: None,
+            page_size: 1,
+            has_next: true,
+            has_prev: false,
+        };
+        let response = PaginatedMediaResponse { data: vec![dto], pagination };
+
+        let json = serde_json::to_string(&response).unwrap();
+        let deserialized: PaginatedMediaResponse = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(response.data.len(), deserialized.data.len());
+        assert_eq!(response.pagination.page_size, deserialized.pagination.page_size);
+        assert_eq!(response.pagination.has_next, deserialized.pagination.has_next);
+        assert_eq!(response.pagination.has_prev, deserialized.pagination.has_prev);
+    }
+
+    #[test]
+    fn test_pagination_info_first_page() {
+        let pagination = PaginationInfo {
+            next_cursor: Some("next".to_string()),
+            prev_cursor: None,
+            page_size: 50,
+            has_next: true,
+            has_prev: false,
+        };
+
+        assert!(pagination.has_next);
+        assert!(!pagination.has_prev);
+        assert!(pagination.prev_cursor.is_none());
+        assert!(pagination.next_cursor.is_some());
+    }
+
+    #[test]
+    fn test_pagination_info_last_page() {
+        let pagination = PaginationInfo {
+            next_cursor: None,
+            prev_cursor: Some("prev".to_string()),
+            page_size: 30,
+            has_next: false,
+            has_prev: true,
+        };
+
+        assert!(!pagination.has_next);
+        assert!(pagination.has_prev);
+        assert!(pagination.next_cursor.is_none());
+        assert!(pagination.prev_cursor.is_some());
     }
 }

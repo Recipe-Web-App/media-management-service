@@ -323,9 +323,89 @@ The service exposes HTTP endpoints following RESTful patterns:
 **Media Endpoints**:
 
 - `POST /media/` - Upload media files
-- `GET /media/` - List and search media
+- `GET /media/` - List media with cursor-based pagination
 - `GET /media/{id}` - Get media metadata
 - `GET /media/{id}/download` - Download media files
+
+#### GET `/media/` - List Media with Cursor-Based Pagination
+
+Retrieves a paginated list of media files for the authenticated user using efficient cursor-based pagination.
+
+**Query Parameters:**
+
+- `cursor` (optional): Base64-encoded cursor for pagination navigation
+- `limit` (optional): Number of items per page (default: 50, max: 100, min: 1)
+- `status` (optional): Filter by processing status (`Pending`, `Processing`, `Complete`, `Failed`)
+
+**Response:**
+
+- **200 OK** - Successfully retrieved media list
+- **400 Bad Request** - Invalid query parameters (e.g., invalid cursor format)
+
+**Success Response Format:**
+
+```json
+{
+  "data": [
+    {
+      "id": 123,
+      "content_hash": "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+      "original_filename": "example-image.jpg",
+      "media_type": "image/jpeg",
+      "media_path": "ab/cd/ef/abcdef123456",
+      "file_size": 1048576,
+      "processing_status": "Complete",
+      "uploaded_at": "2025-01-15T10:30:00Z",
+      "updated_at": "2025-01-15T10:30:00Z"
+    }
+  ],
+  "pagination": {
+    "next_cursor": "eyJpZCI6MTI0fQ==",
+    "prev_cursor": null,
+    "page_size": 1,
+    "has_next": true,
+    "has_prev": false
+  }
+}
+```
+
+**Pagination Fields:**
+
+- `next_cursor`: Base64-encoded cursor for next page (null if last page)
+- `prev_cursor`: Reserved for future backward pagination (currently null)
+- `page_size`: Number of items in current page
+- `has_next`: Boolean indicating if more items available
+- `has_prev`: Boolean indicating if previous items exist (based on cursor presence)
+
+**Example Usage:**
+
+```bash
+# Get first page (default 50 items)
+curl "http://localhost:3000/api/v1/media-management/media/"
+
+# Get first page with custom limit
+curl "http://localhost:3000/api/v1/media-management/media/?limit=25"
+
+# Get next page using cursor from previous response
+curl "http://localhost:3000/api/v1/media-management/media/?cursor=eyJpZCI6MTI0fQ=="
+
+# Filter by processing status
+curl "http://localhost:3000/api/v1/media-management/media/?status=Complete&limit=10"
+
+# Combined filters
+curl "http://localhost:3000/api/v1/media-management/media/?cursor=eyJpZCI6MTAwfQ==&limit=20&status=Complete"
+
+# Using the service URL in Kubernetes
+curl "http://media-management.local/api/v1/media-management/media/?limit=25"
+```
+
+**Cursor Format:**
+
+Cursors are base64-encoded media IDs that provide efficient database-level pagination:
+
+- More efficient than offset-based pagination for large datasets
+- Consistent results even when data is modified during pagination
+- Scales better with database indexing
 
 #### GET `/media/{id}` - Get Media Metadata
 

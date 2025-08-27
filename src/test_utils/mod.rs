@@ -7,7 +7,7 @@ pub mod mocks {
     use crate::domain::{
         entities::{IngredientId, Media, MediaId, RecipeId, StepId, UserId},
         repositories::MediaRepository,
-        value_objects::ContentHash,
+        value_objects::{ContentHash, ProcessingStatus},
     };
     use crate::presentation::middleware::error::AppError;
 
@@ -132,6 +132,76 @@ pub mod mocks {
             let media: Vec<Media> =
                 storage.values().filter(|m| m.uploaded_by == user_id).cloned().collect();
             Ok(media)
+        }
+
+        async fn find_by_user_paginated(
+            &self,
+            user_id: UserId,
+            cursor: Option<String>,
+            limit: u32,
+            status_filter: Option<ProcessingStatus>,
+        ) -> Result<(Vec<Media>, Option<String>, bool), Self::Error> {
+            let storage = self.storage.lock().unwrap();
+
+            // Filter by user and optional status
+            let mut media: Vec<Media> = storage
+                .values()
+                .filter(|m| m.uploaded_by == user_id)
+                .filter(|m| {
+                    if let Some(ref status) = status_filter {
+                        &m.processing_status == status
+                    } else {
+                        true
+                    }
+                })
+                .cloned()
+                .collect();
+
+            // Sort by ID for consistent pagination
+            media.sort_by_key(|m| m.id.as_i64());
+
+            // Apply cursor-based filtering
+            let start_index = if let Some(cursor_str) = cursor {
+                // Decode cursor (simple base64 of media_id)
+                use base64::{engine::general_purpose::STANDARD, Engine as _};
+                if let Ok(decoded) = STANDARD.decode(&cursor_str) {
+                    if let Ok(cursor_data) = String::from_utf8(decoded) {
+                        if let Ok(cursor_id) = cursor_data.parse::<i64>() {
+                            // Find the first media with ID greater than cursor
+                            media
+                                .iter()
+                                .position(|m| m.id.as_i64() > cursor_id)
+                                .unwrap_or(media.len())
+                        } else {
+                            0
+                        }
+                    } else {
+                        0
+                    }
+                } else {
+                    0
+                }
+            } else {
+                0
+            };
+
+            // Take the page slice
+            let limit = limit.clamp(1, 100) as usize;
+            let end_index = (start_index + limit).min(media.len());
+            let has_more = end_index < media.len();
+
+            let page_media = media[start_index..end_index].to_vec();
+
+            // Generate next cursor if there are more items
+            let next_cursor = if has_more && !page_media.is_empty() {
+                use base64::{engine::general_purpose::STANDARD, Engine as _};
+                let last_media_id = page_media.last().unwrap().id.as_i64();
+                Some(STANDARD.encode(last_media_id.to_string().as_bytes()))
+            } else {
+                None
+            };
+
+            Ok((page_media, next_cursor, has_more))
         }
 
         async fn update(&self, media: &Media) -> Result<(), Self::Error> {

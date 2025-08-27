@@ -157,6 +157,17 @@ mod tests {
                 Err(AppError::Internal { message: "Database error".to_string() })
             }
 
+            async fn find_by_user_paginated(
+                &self,
+                _user_id: UserId,
+                _cursor: Option<String>,
+                _limit: u32,
+                _status_filter: Option<crate::domain::value_objects::ProcessingStatus>,
+            ) -> Result<(Vec<crate::domain::entities::Media>, Option<String>, bool), Self::Error>
+            {
+                Err(AppError::Internal { message: "Database error".to_string() })
+            }
+
             async fn update(
                 &self,
                 _media: &crate::domain::entities::Media,
