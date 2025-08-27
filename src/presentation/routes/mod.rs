@@ -24,11 +24,14 @@ fn media_management_routes() -> Router<AppState> {
 /// Create media-related routes with state
 fn media_routes() -> Router<AppState> {
     Router::new()
+        // Legacy direct upload endpoint (deprecated)
         .route("/", post(handlers::media::upload_media))
         .route("/", get(handlers::media::list_media))
+        // Status and retrieval endpoints
         .route("/{id}", get(handlers::media::get_media))
         .route("/{id}", delete(handlers::media::delete_media))
         .route("/{id}/download", get(handlers::media::download_media))
+        // Recipe-related endpoints
         .route("/recipe/{recipe_id}", get(handlers::media::get_media_by_recipe))
         .route(
             "/recipe/{recipe_id}/ingredient/{ingredient_id}",

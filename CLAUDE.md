@@ -520,6 +520,143 @@ curl -X DELETE "http://media-management.local/api/v1/media-management/media/123"
 curl "http://localhost:3000/api/v1/media-management/media/123"
 ```
 
+#### POST `/media/upload-request` - Initiate Presigned Upload Session
+
+Initiates a presigned upload session for secure, UI-friendly file uploads with progress tracking.
+
+**Request Body:**
+
+```json
+{
+  "filename": "example.jpg",
+  "content_type": "image/jpeg",
+  "file_size": 1048576
+}
+```
+
+**Response:**
+
+- **200 OK** - Successfully created upload session
+- **400 Bad Request** - Invalid request (file too large, dangerous extension, invalid content type)
+
+**Success Response Format:**
+
+```json
+{
+  "media_id": 123,
+  "upload_url": "http://localhost:3000/api/v1/media-management/media/upload/upload_abc123?signature=def456&expires=1704067200&size=1048576&type=image%2Fjpeg",
+  "upload_token": "upload_abc123",
+  "expires_at": "2024-01-01T12:00:00Z",
+  "status": "Pending"
+}
+```
+
+**Security Features:**
+
+- **HMAC-SHA256 signature** for URL tampering protection
+- **Expiration timestamps** (15-minute default)
+- **File size validation** and limits
+- **Content type validation**
+- **Dangerous file extension filtering**
+
+**Example Usage:**
+
+```bash
+curl -X POST "http://localhost:3000/api/v1/media-management/media/upload-request" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "filename": "photo.jpg",
+    "content_type": "image/jpeg",
+    "file_size": 2048576
+  }'
+```
+
+#### PUT `/media/upload/{token}` - Upload File to Presigned URL
+
+Uploads the actual file content using the presigned URL from the upload initiation.
+
+**Path Parameters:**
+
+- `token`: Upload token from initiation response
+
+**Query Parameters (automatically included in presigned URL):**
+
+- `signature`: HMAC signature for security validation
+- `expires`: Unix timestamp for URL expiration
+- `size`: Expected file size in bytes
+- `type`: URL-encoded content type
+
+**Request Body:** Raw file data (binary)
+
+**Response:**
+
+- **200 OK** - File uploaded and processing started
+- **400 Bad Request** - Invalid signature, expired URL, or file size mismatch
+- **401 Unauthorized** - Invalid or expired signature
+
+**Success Response Format:**
+
+```json
+{
+  "media_id": 123,
+  "content_hash": "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+  "processing_status": "Processing",
+  "upload_url": null
+}
+```
+
+**Example Usage:**
+
+```bash
+# Use the upload_url from the initiation response
+curl -X PUT \
+  "http://localhost:3000/api/v1/media-management/media/upload/upload_abc123?\
+signature=def456&expires=1704067200&size=1048576&type=image%2Fjpeg" \
+  --data-binary @photo.jpg \
+  -H "Content-Type: image/jpeg"
+```
+
+#### GET `/media/{id}/status` - Get Upload/Processing Status
+
+Retrieves the current status of a media upload, including processing progress and any error information.
+
+**Path Parameters:**
+
+- `id`: Media ID from upload initiation
+
+**Response:**
+
+- **200 OK** - Status retrieved successfully
+- **404 Not Found** - Media not found
+
+**Success Response Format:**
+
+```json
+{
+  "media_id": 123,
+  "status": "Complete",
+  "progress": 100,
+  "error_message": null,
+  "download_url": "http://localhost:3000/api/v1/media-management/media/123/download",
+  "processing_time_ms": 2500,
+  "uploaded_at": "2024-01-01T12:00:00Z",
+  "completed_at": "2024-01-01T12:00:02Z"
+}
+```
+
+**Status Values:**
+
+- `"Pending"` - Upload session created, file not yet uploaded
+- `"Processing"` - File uploaded, currently being processed
+- `"Complete"` - Processing finished, file ready for use
+- `"Failed"` - Processing failed, see error_message
+
+**Example Usage:**
+
+```bash
+curl "http://localhost:3000/api/v1/media-management/media/123/status"
+```
+
 **Recipe-Related Media Endpoints**:
 
 - `GET /media/recipe/{recipe_id}` - Get media IDs for a recipe
