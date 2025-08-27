@@ -28,21 +28,60 @@ Currently, the service runs without authentication enabled. All endpoints are pu
 
 **GET** `/health`
 
-Kubernetes liveness probe endpoint.
+Kubernetes liveness probe endpoint with comprehensive dependency validation.
 
-**Response:**
+**Responses:**
+
+**Healthy (all dependencies operational):**
 
 ```json
 {
   "status": "healthy",
-  "timestamp": "2024-08-24T10:30:00.123Z",
-  "service": "media-management-service"
+  "timestamp": "2025-01-15T10:30:00Z",
+  "service": "media-management-service",
+  "version": "0.1.0",
+  "response_time_ms": 25,
+  "checks": {
+    "database": {
+      "status": "healthy",
+      "response_time_ms": 5
+    },
+    "storage": {
+      "status": "healthy",
+      "response_time_ms": 3
+    },
+    "overall": "healthy"
+  }
+}
+```
+
+**Degraded (some dependencies working):**
+
+```json
+{
+  "status": "degraded",
+  "timestamp": "2025-01-15T10:30:00Z",
+  "service": "media-management-service",
+  "version": "0.1.0",
+  "response_time_ms": 2050,
+  "checks": {
+    "database": {
+      "status": "unhealthy",
+      "response_time_ms": 2000
+    },
+    "storage": {
+      "status": "healthy",
+      "response_time_ms": 3
+    },
+    "overall": "degraded"
+  }
 }
 ```
 
 **Status Codes:**
 
-- `200 OK` - Service is healthy
+- `200 OK` - Service is healthy or degraded (can still serve some requests)
+- `503 Service Unavailable` - Service is unhealthy (all dependencies failed)
 
 ---
 
@@ -50,24 +89,66 @@ Kubernetes liveness probe endpoint.
 
 **GET** `/ready`
 
-Kubernetes readiness probe endpoint.
+Kubernetes readiness probe endpoint with binary ready/not-ready status.
 
-**Response:**
+**Responses:**
+
+**Ready (all dependencies operational):**
 
 ```json
 {
   "status": "ready",
-  "timestamp": "2024-08-24T10:30:00.123Z",
+  "timestamp": "2025-01-15T10:30:00Z",
+  "service": "media-management-service",
+  "version": "0.1.0",
+  "response_time_ms": 25,
   "checks": {
-    "database": "not_configured",
-    "storage": "ok"
+    "database": {
+      "status": "ready",
+      "response_time_ms": 5
+    },
+    "storage": {
+      "status": "ready",
+      "response_time_ms": 3
+    },
+    "overall": "ready"
   }
 }
 ```
 
+**Not Ready (any dependency failed):**
+
+```json
+{
+  "status": "not_ready",
+  "timestamp": "2025-01-15T10:30:00Z",
+  "service": "media-management-service",
+  "version": "0.1.0",
+  "response_time_ms": 2010,
+  "checks": {
+    "database": {
+      "status": "timeout",
+      "response_time_ms": 2000
+    },
+    "storage": {
+      "status": "ready",
+      "response_time_ms": 3
+    },
+    "overall": "not_ready"
+  }
+}
+```
+
+**Key Differences from Health Check:**
+
+- **Binary status**: Either "ready" or "not_ready" (no "degraded" state)
+- **Traffic routing**: Used by Kubernetes to decide if pod should receive traffic
+- **Stricter criteria**: ALL dependencies must be operational for "ready" status
+
 **Status Codes:**
 
-- `200 OK` - Service is ready to accept requests
+- `200 OK` - Service is ready to accept traffic (all dependencies operational)
+- `503 Service Unavailable` - Service is not ready (any dependency failed)
 
 ---
 
