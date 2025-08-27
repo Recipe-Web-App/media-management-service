@@ -510,9 +510,130 @@
             "description": "Retrieve metadata for a media file created in this session"
           },
           "response": []
+        },
+        {
+          "name": "Delete Media by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 204 (No Content) for successful deletion', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});",
+                  "",
+                  "pm.test('Response body is empty', function () {",
+                  "    pm.expect(pm.response.text()).to.be.empty;",
+                  "});",
+                  "",
+                  "pm.test('Response time is less than 1000ms', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(1000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{mediaServiceApiUrl}}/media/{{testMediaId}}",
+              "host": ["{{mediaServiceApiUrl}}"],
+              "path": ["media", "{{testMediaId}}"]
+            },
+            "description": "Delete a media file and its database record"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Created Media",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Use the media ID created from upload",
+                  "const mediaId = pm.collectionVariables.get('createdMediaId');",
+                  "if (!mediaId) {",
+                  "    pm.test('Skipped - no created media ID available', function () {",
+                  "        pm.expect(true).to.be.true;",
+                  "    });",
+                  "    return;",
+                  "}",
+                  "",
+                  "pm.test('Status code is 204 (No Content) for successful deletion', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});",
+                  "",
+                  "pm.test('Response body is empty', function () {",
+                  "    pm.expect(pm.response.text()).to.be.empty;",
+                  "});",
+                  "",
+                  "// Clear the created media ID since it's now deleted",
+                  "pm.collectionVariables.set('createdMediaId', '');",
+                  "pm.collectionVariables.set('createdContentHash', '');",
+                  "",
+                  "pm.test('Response time is less than 1000ms', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(1000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{mediaServiceApiUrl}}/media/{{createdMediaId}}",
+              "host": ["{{mediaServiceApiUrl}}"],
+              "path": ["media", "{{createdMediaId}}"]
+            },
+            "description": "Delete a media file created in this session"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Media - Not Found Error",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 404 (Not Found)', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test('Response has error structure', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('error');",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "    pm.expect(jsonData.error).to.eql('Not Found');",
+                  "});",
+                  "",
+                  "pm.test('Response time is less than 1000ms', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(1000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{mediaServiceApiUrl}}/media/999999",
+              "host": ["{{mediaServiceApiUrl}}"],
+              "path": ["media", "999999"]
+            },
+            "description": "Attempt to delete a non-existent media file to test error handling"
+          },
+          "response": []
         }
       ],
-      "description": "Media retrieval and listing endpoints"
+      "description": "Media retrieval, listing, and management endpoints"
     },
     {
       "name": "Media Download",

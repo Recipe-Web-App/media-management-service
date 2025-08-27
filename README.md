@@ -183,6 +183,7 @@ Base URL: `http://localhost:3000/api/v1/media-management`
 - `POST /media/` - Upload new media file
 - `GET /media/` - List media files (with optional query parameters)
 - `GET /media/{id}` - Get media metadata by ID
+- `DELETE /media/{id}` - Delete media file and metadata
 - `GET /media/{id}/download` - Download media file by ID
 
 **Example Usage:**
@@ -201,6 +202,9 @@ curl http://localhost:3000/api/v1/media-management/media/
 
 # Get media info
 curl http://localhost:3000/api/v1/media-management/media/{media-id}
+
+# Delete media
+curl -X DELETE http://localhost:3000/api/v1/media-management/media/{media-id}
 
 # Download media
 curl http://localhost:3000/api/v1/media-management/media/{media-id}/download \

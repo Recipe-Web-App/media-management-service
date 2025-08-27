@@ -1,3 +1,4 @@
+mod delete_media;
 mod download_media;
 mod get_media;
 mod get_media_by_ingredient;
@@ -7,6 +8,7 @@ mod initiate_upload;
 mod list_media;
 mod upload_media;
 
+pub use delete_media::DeleteMediaUseCase;
 pub use download_media::DownloadMediaUseCase;
 pub use get_media::GetMediaUseCase;
 pub use get_media_by_ingredient::GetMediaByIngredientUseCase;
