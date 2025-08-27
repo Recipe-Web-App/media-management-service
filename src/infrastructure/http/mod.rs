@@ -76,8 +76,13 @@ pub fn create_app(config: &AppConfig, database: Option<&Database>) -> Router {
 
     let file_storage = std::sync::Arc::new(FilesystemStorage::new(&config.storage.base_path));
 
+    // Create presigned URL service
+    let presigned_service =
+        crate::infrastructure::storage::PresignedUrlService::from_app_config(config);
+
     // Create application state
-    let app_state = AppState::new(media_repo, file_storage, config.storage.max_file_size);
+    let app_state =
+        AppState::new(media_repo, file_storage, presigned_service, config.storage.max_file_size);
 
     if database.is_some() {
         tracing::info!("Creating application with database connection and full functionality");

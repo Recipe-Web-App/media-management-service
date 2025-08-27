@@ -252,6 +252,32 @@ impl From<serde_json::Error> for AppError {
     }
 }
 
+impl From<crate::infrastructure::storage::presigned_urls::PresignedUrlError> for AppError {
+    fn from(err: crate::infrastructure::storage::presigned_urls::PresignedUrlError) -> Self {
+        use crate::infrastructure::storage::presigned_urls::PresignedUrlError;
+
+        match err {
+            PresignedUrlError::FileTooLarge { size, max_size } => AppError::PayloadTooLarge {
+                message: format!(
+                    "File size {size} bytes exceeds maximum allowed size of {max_size} bytes"
+                ),
+            },
+            PresignedUrlError::Expired { expired_at } => {
+                AppError::BadRequest { message: format!("Upload URL has expired at {expired_at}") }
+            }
+            PresignedUrlError::InvalidSignature => {
+                AppError::Authentication { message: "Invalid upload signature".to_string() }
+            }
+            PresignedUrlError::InvalidExpiration => {
+                AppError::BadRequest { message: "Invalid expiration time".to_string() }
+            }
+            PresignedUrlError::SigningError => {
+                AppError::Internal { message: "Failed to sign payload".to_string() }
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

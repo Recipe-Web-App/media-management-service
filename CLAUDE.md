@@ -322,11 +322,17 @@ The service exposes HTTP endpoints following RESTful patterns:
 
 **Media Endpoints**:
 
-- `POST /media/` - Upload media files
+- `POST /media/` - Upload media files (legacy direct upload)
 - `GET /media/` - List media with cursor-based pagination
 - `GET /media/{id}` - Get media metadata
 - `DELETE /media/{id}` - Delete media files
 - `GET /media/{id}/download` - Download media files
+
+**Presigned Upload Endpoints** (Recommended):
+
+- `POST /media/upload-request` - Initiate presigned upload session
+- `PUT /media/upload/{token}` - Upload file to presigned URL
+- `GET /media/{id}/status` - Get upload/processing status
 
 #### GET `/media/` - List Media with Cursor-Based Pagination
 

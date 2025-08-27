@@ -1,7 +1,7 @@
 use media_management_service::domain::{
     entities::{Media, MediaId, UserId},
     repositories::MediaRepository,
-    value_objects::{ContentHash, MediaType, ProcessingStatus},
+    value_objects::ContentHash,
 };
 use mockall::mock;
 use std::collections::HashMap;
@@ -14,7 +14,7 @@ mock! {
     impl MediaRepository for MediaRepo {
         type Error = MockRepositoryError;
 
-        async fn save(&self, media: &Media) -> Result<(), Self::Error>;
+        async fn save(&self, media: &Media) -> Result<MediaId, Self::Error>;
         async fn find_by_id(&self, id: MediaId) -> Result<Option<Media>, Self::Error>;
         async fn find_by_content_hash(&self, hash: &ContentHash) -> Result<Option<Media>, Self::Error>;
         async fn find_by_user(&self, user_id: UserId) -> Result<Vec<Media>, Self::Error>;
@@ -67,10 +67,11 @@ impl Default for InMemoryMediaRepository {
 impl MediaRepository for InMemoryMediaRepository {
     type Error = MockRepositoryError;
 
-    async fn save(&self, media: &Media) -> Result<(), Self::Error> {
+    async fn save(&self, media: &Media) -> Result<MediaId, Self::Error> {
         let mut storage = self.storage.lock().unwrap();
+        let media_id = media.id;
         storage.insert(media.id, media.clone());
-        Ok(())
+        Ok(media_id)
     }
 
     async fn find_by_id(&self, id: MediaId) -> Result<Option<Media>, Self::Error> {

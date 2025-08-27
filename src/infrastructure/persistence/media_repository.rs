@@ -26,7 +26,7 @@ impl PostgreSqlMediaRepository {
 impl MediaRepository for PostgreSqlMediaRepository {
     type Error = AppError;
 
-    async fn save(&self, media: &Media) -> Result<(), Self::Error> {
+    async fn save(&self, media: &Media) -> Result<MediaId, Self::Error> {
         let user_id = media.uploaded_by.as_uuid();
         let media_type_str = media.media_type.mime_type();
         let content_hash_str = media.content_hash.as_str();
@@ -36,11 +36,12 @@ impl MediaRepository for PostgreSqlMediaRepository {
         let uploaded_at: DateTime<Utc> = media.uploaded_at.into();
         let updated_at: DateTime<Utc> = media.updated_at.into();
 
-        sqlx::query(
+        let row = sqlx::query(
             r"
             INSERT INTO recipe_manager.media
             (user_id, media_type, media_path, file_size, content_hash, original_filename, processing_status, created_at, updated_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            RETURNING media_id
             ",
         )
         .bind(user_id)
@@ -52,11 +53,12 @@ impl MediaRepository for PostgreSqlMediaRepository {
         .bind(processing_status_str)
         .bind(uploaded_at)
         .bind(updated_at)
-        .execute(&self.pool)
+        .fetch_one(&self.pool)
         .await
         .map_err(AppError::from)?;
 
-        Ok(())
+        let media_id = MediaId::new(row.get("media_id"));
+        Ok(media_id)
     }
 
     async fn find_by_id(&self, id: MediaId) -> Result<Option<Media>, Self::Error> {
@@ -678,7 +680,7 @@ impl DisconnectedMediaRepository {
 impl MediaRepository for DisconnectedMediaRepository {
     type Error = AppError;
 
-    async fn save(&self, _media: &Media) -> Result<(), Self::Error> {
+    async fn save(&self, _media: &Media) -> Result<MediaId, Self::Error> {
         Err(AppError::Database { message: format!("Database unavailable: {}", self.error_message) })
     }
 
