@@ -19,18 +19,6 @@ impl PostgreSqlMediaRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
-
-    /// Health check for database connectivity
-    ///
-    /// Performs a simple query to verify database connectivity and responsiveness.
-    /// Returns `Ok(())` if database is accessible, `Err(AppError)` otherwise.
-    pub async fn health_check(&self) -> Result<(), AppError> {
-        sqlx::query("SELECT 1")
-            .fetch_one(&self.pool)
-            .await
-            .map_err(|e| AppError::Database { message: format!("Health check failed: {e}") })?;
-        Ok(())
-    }
 }
 
 #[async_trait]
@@ -290,6 +278,18 @@ impl MediaRepository for PostgreSqlMediaRepository {
 
         Ok(media_ids)
     }
+
+    /// Health check for database connectivity
+    ///
+    /// Performs a simple query to verify database connectivity and responsiveness.
+    /// Returns `Ok(())` if database is accessible, `Err(AppError)` otherwise.
+    async fn health_check(&self) -> Result<(), Self::Error> {
+        sqlx::query("SELECT 1")
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| AppError::Database { message: format!("Health check failed: {e}") })?;
+        Ok(())
+    }
 }
 
 /// Helper function to map database row to Media entity
@@ -501,4 +501,130 @@ mod tests {
 
     // Integration tests requiring actual database connections should be in the integration test directory
     // These unit tests focus on repository creation and data mapping logic without database dependencies
+
+    #[tokio::test]
+    async fn test_disconnected_repository_creation() {
+        let repo = DisconnectedMediaRepository::new("test error".to_string());
+        assert_eq!(repo.error_message, "test error");
+    }
+
+    #[tokio::test]
+    async fn test_disconnected_repository_health_check_fails() {
+        let repo = DisconnectedMediaRepository::new("test connection failed".to_string());
+        let result = repo.health_check().await;
+        assert!(result.is_err());
+
+        if let Err(AppError::Database { message }) = result {
+            assert!(message.contains("Database unavailable"));
+            assert!(message.contains("test connection failed"));
+        } else {
+            panic!("Expected Database error");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_disconnected_repository_all_methods_fail() {
+        let repo = DisconnectedMediaRepository::new("test error".to_string());
+        let test_media = create_test_media();
+        let test_hash =
+            ContentHash::new("abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890")
+                .unwrap();
+        let test_id = MediaId::new(1);
+        let test_user_id = UserId::new();
+        let recipe_id = RecipeId::new(1);
+        let ingredient_id = IngredientId::new(1);
+        let step_id = StepId::new(1);
+
+        // Test all methods fail appropriately
+        assert!(repo.save(&test_media).await.is_err());
+        assert!(repo.find_by_id(test_id).await.is_err());
+        assert!(repo.find_by_content_hash(&test_hash).await.is_err());
+        assert!(repo.find_by_user(test_user_id).await.is_err());
+        assert!(repo.update(&test_media).await.is_err());
+        assert!(repo.delete(test_id).await.is_err());
+        assert!(repo.exists_by_content_hash(&test_hash).await.is_err());
+        assert!(repo.find_media_ids_by_recipe(recipe_id).await.is_err());
+        assert!(repo.find_media_ids_by_recipe_ingredient(recipe_id, ingredient_id).await.is_err());
+        assert!(repo.find_media_ids_by_recipe_step(recipe_id, step_id).await.is_err());
+    }
+}
+
+/// A disconnected repository implementation for when database is unavailable
+///
+/// This implementation always fails health checks and database operations,
+/// allowing the service to start but report proper status through health/readiness endpoints.
+#[derive(Clone)]
+pub struct DisconnectedMediaRepository {
+    error_message: String,
+}
+
+impl DisconnectedMediaRepository {
+    /// Create a new disconnected repository with an error message
+    #[must_use]
+    pub fn new(error_message: String) -> Self {
+        Self { error_message }
+    }
+}
+
+#[async_trait]
+impl MediaRepository for DisconnectedMediaRepository {
+    type Error = AppError;
+
+    async fn save(&self, _media: &Media) -> Result<(), Self::Error> {
+        Err(AppError::Database { message: format!("Database unavailable: {}", self.error_message) })
+    }
+
+    async fn find_by_id(&self, _id: MediaId) -> Result<Option<Media>, Self::Error> {
+        Err(AppError::Database { message: format!("Database unavailable: {}", self.error_message) })
+    }
+
+    async fn find_by_content_hash(
+        &self,
+        _hash: &ContentHash,
+    ) -> Result<Option<Media>, Self::Error> {
+        Err(AppError::Database { message: format!("Database unavailable: {}", self.error_message) })
+    }
+
+    async fn find_by_user(&self, _user_id: UserId) -> Result<Vec<Media>, Self::Error> {
+        Err(AppError::Database { message: format!("Database unavailable: {}", self.error_message) })
+    }
+
+    async fn update(&self, _media: &Media) -> Result<(), Self::Error> {
+        Err(AppError::Database { message: format!("Database unavailable: {}", self.error_message) })
+    }
+
+    async fn delete(&self, _id: MediaId) -> Result<bool, Self::Error> {
+        Err(AppError::Database { message: format!("Database unavailable: {}", self.error_message) })
+    }
+
+    async fn exists_by_content_hash(&self, _hash: &ContentHash) -> Result<bool, Self::Error> {
+        Err(AppError::Database { message: format!("Database unavailable: {}", self.error_message) })
+    }
+
+    async fn find_media_ids_by_recipe(
+        &self,
+        _recipe_id: RecipeId,
+    ) -> Result<Vec<MediaId>, Self::Error> {
+        Err(AppError::Database { message: format!("Database unavailable: {}", self.error_message) })
+    }
+
+    async fn find_media_ids_by_recipe_ingredient(
+        &self,
+        _recipe_id: RecipeId,
+        _ingredient_id: IngredientId,
+    ) -> Result<Vec<MediaId>, Self::Error> {
+        Err(AppError::Database { message: format!("Database unavailable: {}", self.error_message) })
+    }
+
+    async fn find_media_ids_by_recipe_step(
+        &self,
+        _recipe_id: RecipeId,
+        _step_id: StepId,
+    ) -> Result<Vec<MediaId>, Self::Error> {
+        Err(AppError::Database { message: format!("Database unavailable: {}", self.error_message) })
+    }
+
+    async fn health_check(&self) -> Result<(), Self::Error> {
+        Err(AppError::Database { message: format!("Database unavailable: {}", self.error_message) })
+    }
 }

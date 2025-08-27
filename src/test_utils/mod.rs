@@ -117,5 +117,10 @@ pub mod mocks {
             // In real tests, you would populate this with test data
             Ok(vec![])
         }
+
+        async fn health_check(&self) -> Result<(), Self::Error> {
+            // In-memory repository is always healthy
+            Ok(())
+        }
     }
 }

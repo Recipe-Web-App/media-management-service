@@ -14,23 +14,25 @@ use crate::{
             GetMediaByStepUseCase, GetMediaUseCase, ListMediaUseCase, UploadMediaUseCase,
         },
     },
-    domain::entities::{IngredientId, MediaId, RecipeId, StepId, UserId},
+    domain::{
+        entities::{IngredientId, MediaId, RecipeId, StepId, UserId},
+        repositories::MediaRepository,
+    },
+    infrastructure::storage::FilesystemStorage,
     presentation::middleware::error::AppError,
 };
-
-use crate::infrastructure::{persistence::PostgreSqlMediaRepository, storage::FilesystemStorage};
 
 /// Application state containing dependencies
 #[derive(Clone)]
 pub struct AppState {
-    pub repository: Arc<PostgreSqlMediaRepository>,
+    pub repository: Arc<dyn MediaRepository<Error = AppError>>,
     pub storage: Arc<FilesystemStorage>,
     pub max_file_size: u64,
 }
 
 impl AppState {
     pub fn new(
-        repository: Arc<PostgreSqlMediaRepository>,
+        repository: Arc<dyn MediaRepository<Error = AppError>>,
         storage: Arc<FilesystemStorage>,
         max_file_size: u64,
     ) -> Self {

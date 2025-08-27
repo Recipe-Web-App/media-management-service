@@ -81,8 +81,58 @@ The service provides comprehensive health monitoring with dependency validation:
 **Kubernetes Integration**:
 
 - Use for liveness probes to restart failing containers
-- Use for readiness probes to control traffic routing
 - Supports graceful degradation scenarios
+
+#### Readiness Check System
+
+The service provides a comprehensive readiness check to determine if the service is ready to accept traffic:
+
+**Endpoint**: `GET /api/v1/media-management/ready`
+
+**Response Format**:
+
+```json
+{
+  "status": "ready|not_ready",
+  "timestamp": "2025-01-15T10:30:00Z",
+  "service": "media-management-service",
+  "version": "0.1.0",
+  "response_time_ms": 25,
+  "checks": {
+    "database": {
+      "status": "ready",
+      "response_time_ms": 5
+    },
+    "storage": {
+      "status": "ready",
+      "response_time_ms": 3
+    },
+    "overall": "ready"
+  }
+}
+```
+
+**Readiness vs Health**:
+
+- **Health**: Service operational status (healthy/degraded/unhealthy) - may be degraded but still functional
+- **Readiness**: Binary ready/not-ready status - service is prepared to accept traffic or not
+
+**HTTP Status Codes**:
+
+- `200 OK`: Service is ready to accept traffic (all dependencies operational)
+- `503 Service Unavailable`: Service is not ready (any dependency failed)
+
+**Dependency Checks**:
+
+- **Database**: Tests PostgreSQL connectivity
+- **Storage**: Validates filesystem access and permissions
+- **Timeouts**: Each check has 2-second timeout to prevent hanging
+
+**Kubernetes Integration**:
+
+- Use for readiness probes to control traffic routing
+- Traffic only routed to pods reporting "ready" status
+- Binary decision making for load balancing
 
 ### Testing & Quality
 
@@ -285,6 +335,12 @@ The service exposes HTTP endpoints following RESTful patterns:
 
 The API follows the `/api/v1/media-management/` namespace pattern consistent with
 other services in the recipe web application ecosystem.
+
+**Route Configuration**:
+
+The service uses a unified routing system where all endpoints are always available and
+perform proper dependency validation. Health and readiness endpoints always exist and
+report actual system status based on database and storage connectivity.
 
 ## Development Notes
 

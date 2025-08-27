@@ -21,8 +21,8 @@ use crate::{
 /// Use case for uploading media files
 pub struct UploadMediaUseCase<R, S>
 where
-    R: MediaRepository,
-    S: FileStorage,
+    R: MediaRepository + ?Sized,
+    S: FileStorage + ?Sized,
 {
     repository: Arc<R>,
     storage: Arc<S>,
@@ -31,8 +31,8 @@ where
 
 impl<R, S> UploadMediaUseCase<R, S>
 where
-    R: MediaRepository,
-    S: FileStorage,
+    R: MediaRepository + ?Sized,
+    S: FileStorage + ?Sized,
 {
     /// Create a new upload media use case
     pub fn new(repository: Arc<R>, storage: Arc<S>, max_file_size: u64) -> Self {
