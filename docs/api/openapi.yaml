@@ -32,39 +32,129 @@ paths:
     get:
       tags: [health]
       summary: Health check
-      description: Kubernetes liveness probe endpoint
+      description: |
+        Kubernetes liveness probe endpoint with comprehensive dependency validation.
+
+        Supports three status levels:
+        - **healthy**: All dependencies operational
+        - **degraded**: At least one dependency working (service partially functional)
+        - **unhealthy**: All critical dependencies failing
       operationId: healthCheck
       responses:
         "200":
-          description: Service is healthy
+          description: Service is healthy or degraded (can still serve requests)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              examples:
+                healthy:
+                  summary: All dependencies healthy
+                  value:
+                    status: "healthy"
+                    timestamp: "2025-01-15T10:30:00Z"
+                    service: "media-management-service"
+                    version: "0.1.0"
+                    response_time_ms: 25
+                    checks:
+                      database:
+                        status: "healthy"
+                        response_time_ms: 5
+                      storage:
+                        status: "healthy"
+                        response_time_ms: 3
+                      overall: "healthy"
+                degraded:
+                  summary: Some dependencies failing
+                  value:
+                    status: "degraded"
+                    timestamp: "2025-01-15T10:30:00Z"
+                    service: "media-management-service"
+                    version: "0.1.0"
+                    response_time_ms: 2050
+                    checks:
+                      database:
+                        status: "unhealthy"
+                        response_time_ms: 2000
+                      storage:
+                        status: "healthy"
+                        response_time_ms: 3
+                      overall: "degraded"
+        "503":
+          description: Service is unhealthy (all dependencies failed)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
               example:
-                status: healthy
-                timestamp: "2024-08-24T10:30:00.123Z"
+                status: "unhealthy"
+                timestamp: "2025-01-15T10:30:00Z"
                 service: "media-management-service"
+                version: "0.1.0"
+                response_time_ms: 4010
+                checks:
+                  database:
+                    status: "timeout"
+                    response_time_ms: 2000
+                  storage:
+                    status: "unhealthy"
+                    response_time_ms: 2000
+                  overall: "unhealthy"
 
   /ready:
     get:
       tags: [health]
       summary: Readiness check
-      description: Kubernetes readiness probe endpoint
+      description: |
+        Kubernetes readiness probe endpoint with binary ready/not-ready status.
+
+        Unlike health checks, readiness is binary:
+        - **ready**: ALL dependencies operational (service can accept traffic)
+        - **not_ready**: ANY dependency failed (service should not receive traffic)
+
+        Used by Kubernetes to control traffic routing to pods.
       operationId: readinessCheck
       responses:
         "200":
-          description: Service is ready to accept requests
+          description: Service is ready to accept traffic (all dependencies operational)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReadinessResponse"
               example:
-                status: ready
-                timestamp: "2024-08-24T10:30:00.123Z"
+                status: "ready"
+                timestamp: "2025-01-15T10:30:00Z"
+                service: "media-management-service"
+                version: "0.1.0"
+                response_time_ms: 25
                 checks:
-                  database: not_configured
-                  storage: ok
+                  database:
+                    status: "ready"
+                    response_time_ms: 5
+                  storage:
+                    status: "ready"
+                    response_time_ms: 3
+                  overall: "ready"
+        "503":
+          description: Service is not ready (any dependency failed)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
+              example:
+                status: "not_ready"
+                timestamp: "2025-01-15T10:30:00Z"
+                service: "media-management-service"
+                version: "0.1.0"
+                response_time_ms: 2010
+                checks:
+                  database:
+                    status: "timeout"
+                    response_time_ms: 2000
+                  storage:
+                    status: "ready"
+                    response_time_ms: 3
+                  overall: "not_ready"
 
   /media:
     post:
@@ -424,45 +514,99 @@ components:
         - status
         - timestamp
         - service
+        - version
+        - response_time_ms
+        - checks
       properties:
         status:
           type: string
-          enum: [healthy]
+          enum: [healthy, degraded, unhealthy]
+          description: Overall health status
           example: healthy
         timestamp:
           type: string
           format: date-time
-          example: "2024-08-24T10:30:00.123Z"
+          description: ISO 8601 timestamp of the health check
+          example: "2025-01-15T10:30:00Z"
         service:
           type: string
+          description: Service name identifier
           example: "media-management-service"
+        version:
+          type: string
+          description: Service version
+          example: "0.1.0"
+        response_time_ms:
+          type: integer
+          minimum: 0
+          description: Total time taken for health check in milliseconds
+          example: 25
+        checks:
+          type: object
+          required:
+            - database
+            - storage
+            - overall
+          properties:
+            database:
+              $ref: "#/components/schemas/DependencyCheck"
+            storage:
+              $ref: "#/components/schemas/DependencyCheck"
+            overall:
+              type: string
+              enum: [healthy, degraded, unhealthy]
+              description: Overall assessment of all dependency checks
+              example: healthy
 
     ReadinessResponse:
       type: object
       required:
         - status
         - timestamp
+        - service
+        - version
+        - response_time_ms
         - checks
       properties:
         status:
           type: string
           enum: [ready, not_ready]
+          description: Binary readiness status
           example: ready
         timestamp:
           type: string
           format: date-time
-          example: "2024-08-24T10:30:00.123Z"
+          description: ISO 8601 timestamp of the readiness check
+          example: "2025-01-15T10:30:00Z"
+        service:
+          type: string
+          description: Service name identifier
+          example: "media-management-service"
+        version:
+          type: string
+          description: Service version
+          example: "0.1.0"
+        response_time_ms:
+          type: integer
+          minimum: 0
+          description: Total time taken for readiness check in milliseconds
+          example: 25
         checks:
           type: object
+          required:
+            - database
+            - storage
+            - overall
           properties:
             database:
-              type: string
-              enum: [ok, error, not_configured]
-              example: not_configured
+              $ref: "#/components/schemas/ReadinessDependencyCheck"
             storage:
+              $ref: "#/components/schemas/ReadinessDependencyCheck"
+            overall:
               type: string
-              enum: [ok, error]
-              example: ok
+              enum: [ready, not_ready]
+              description: Overall readiness assessment - ready only if ALL dependencies ready
+              example: ready
 
     MediaDto:
       type: object
@@ -655,6 +799,40 @@ components:
           type: object
           description: Additional error context (optional)
           additionalProperties: true
+
+    DependencyCheck:
+      type: object
+      required:
+        - status
+        - response_time_ms
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy, timeout]
+          description: Status of individual dependency check
+          example: healthy
+        response_time_ms:
+          type: integer
+          minimum: 0
+          description: Time taken for dependency check in milliseconds
+          example: 5
+
+    ReadinessDependencyCheck:
+      type: object
+      required:
+        - status
+        - response_time_ms
+      properties:
+        status:
+          type: string
+          enum: [ready, not_ready, timeout]
+          description: Readiness status of individual dependency check
+          example: ready
+        response_time_ms:
+          type: integer
+          minimum: 0
+          description: Time taken for dependency check in milliseconds
+          example: 5
 
   parameters:
     MediaId:
