@@ -1,5 +1,6 @@
 use crate::presentation::middleware::error::AppError;
 use async_trait::async_trait;
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use chrono::{DateTime, Utc};
 use sqlx::{PgPool, Row};
 
@@ -279,6 +280,112 @@ impl MediaRepository for PostgreSqlMediaRepository {
         Ok(media_ids)
     }
 
+    async fn find_by_user_paginated(
+        &self,
+        user_id: UserId,
+        cursor: Option<String>,
+        limit: u32,
+        status_filter: Option<ProcessingStatus>,
+    ) -> Result<(Vec<Media>, Option<String>, bool), Self::Error> {
+        let user_uuid = user_id.as_uuid();
+
+        // Validate and constrain limit
+        let limit = limit.clamp(1, 100);
+        let fetch_limit = i64::from(limit + 1); // Fetch one extra to check if there's a next page
+
+        // Decode cursor to get the last media_id
+        let cursor_media_id = match cursor {
+            Some(cursor_str) => {
+                let decoded = STANDARD.decode(&cursor_str).map_err(|_| AppError::BadRequest {
+                    message: "Invalid cursor format".to_string(),
+                })?;
+                let cursor_data = String::from_utf8(decoded).map_err(|_| AppError::BadRequest {
+                    message: "Invalid cursor encoding".to_string(),
+                })?;
+                Some(cursor_data.parse::<i64>().map_err(|_| AppError::BadRequest {
+                    message: "Invalid cursor data".to_string(),
+                })?)
+            }
+            None => None,
+        };
+
+        // Build query with optional status filter and cursor pagination
+        let mut query_str = r"
+            SELECT media_id, user_id, media_type, media_path, file_size, content_hash,
+                   original_filename, processing_status, created_at, updated_at
+            FROM recipe_manager.media
+            WHERE user_id = $1"
+            .to_string();
+
+        let mut bind_index = 2;
+
+        // Add status filter if provided
+        if status_filter.is_some() {
+            use std::fmt::Write;
+            write!(&mut query_str, " AND processing_status = ${bind_index}").unwrap();
+            bind_index += 1;
+        }
+
+        // Add cursor condition for pagination
+        if cursor_media_id.is_some() {
+            use std::fmt::Write;
+            write!(&mut query_str, " AND media_id > ${bind_index}").unwrap();
+            bind_index += 1;
+        }
+
+        // Order by media_id for consistent pagination
+        query_str.push_str(" ORDER BY media_id ASC LIMIT $");
+        query_str.push_str(&bind_index.to_string());
+
+        // Start building the query
+        let mut query = sqlx::query(&query_str).bind(user_uuid);
+
+        // Bind status filter if provided
+        if let Some(status) = status_filter {
+            query = query.bind(status.to_string());
+        }
+
+        // Bind cursor media_id if provided
+        if let Some(id) = cursor_media_id {
+            query = query.bind(id);
+        }
+
+        // Bind limit
+        query = query.bind(fetch_limit);
+
+        let rows = query.fetch_all(&self.pool).await.map_err(AppError::from)?;
+
+        // Check if we have more items than requested (indicates next page exists)
+        let has_more = rows.len() > limit as usize;
+
+        // Take only the requested number of items
+        let media_rows = if has_more { &rows[..limit as usize] } else { &rows };
+
+        // Convert rows to Media entities
+        let mut media_list = Vec::new();
+        for row in media_rows {
+            let media = map_row_to_media(row)?;
+            media_list.push(media);
+        }
+
+        // Generate next cursor if there are more items
+        let next_cursor = if has_more && !media_list.is_empty() {
+            let last_media_id = media_list.last().unwrap().id.as_i64();
+            Some(STANDARD.encode(last_media_id.to_string().as_bytes()))
+        } else {
+            None
+        };
+
+        tracing::debug!(
+            "Paginated query returned {} items, has_more: {}, cursor: {:?}",
+            media_list.len(),
+            has_more,
+            next_cursor
+        );
+
+        Ok((media_list, next_cursor, has_more))
+    }
+
     /// Health check for database connectivity
     ///
     /// Performs a simple query to verify database connectivity and responsiveness.
@@ -540,6 +647,7 @@ mod tests {
         assert!(repo.find_by_id(test_id).await.is_err());
         assert!(repo.find_by_content_hash(&test_hash).await.is_err());
         assert!(repo.find_by_user(test_user_id).await.is_err());
+        assert!(repo.find_by_user_paginated(test_user_id, None, 50, None).await.is_err());
         assert!(repo.update(&test_media).await.is_err());
         assert!(repo.delete(test_id).await.is_err());
         assert!(repo.exists_by_content_hash(&test_hash).await.is_err());
@@ -586,6 +694,16 @@ impl MediaRepository for DisconnectedMediaRepository {
     }
 
     async fn find_by_user(&self, _user_id: UserId) -> Result<Vec<Media>, Self::Error> {
+        Err(AppError::Database { message: format!("Database unavailable: {}", self.error_message) })
+    }
+
+    async fn find_by_user_paginated(
+        &self,
+        _user_id: UserId,
+        _cursor: Option<String>,
+        _limit: u32,
+        _status_filter: Option<ProcessingStatus>,
+    ) -> Result<(Vec<Media>, Option<String>, bool), Self::Error> {
         Err(AppError::Database { message: format!("Database unavailable: {}", self.error_message) })
     }
 

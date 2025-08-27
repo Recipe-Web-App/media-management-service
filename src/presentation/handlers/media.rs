@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use crate::{
     application::{
-        dto::{ListMediaQuery, MediaDto, UploadMediaResponse},
+        dto::{MediaDto, PaginatedMediaQuery, PaginatedMediaResponse, UploadMediaResponse},
         use_cases::{
             DownloadMediaUseCase, GetMediaByIngredientUseCase, GetMediaByRecipeUseCase,
             GetMediaByStepUseCase, GetMediaUseCase, ListMediaUseCase, UploadMediaUseCase,
@@ -134,26 +134,32 @@ pub async fn upload_media(
     Ok(Json(response))
 }
 
-/// List media files
+/// List media files with pagination
+///
+/// Uses efficient database-level cursor-based pagination for better performance.
+/// Supports filtering by status and configurable page size.
 ///
 /// # Errors
 /// Returns appropriate HTTP status codes for various error conditions
 pub async fn list_media(
     State(app_state): State<AppState>,
-    Query(query): Query<ListMediaQuery>,
-) -> Result<Json<Vec<MediaDto>>, AppError> {
-    tracing::info!("Processing media list request with query: {:?}", query);
+    Query(query): Query<PaginatedMediaQuery>,
+) -> Result<Json<PaginatedMediaResponse>, AppError> {
+    tracing::info!("Processing paginated media list request with query: {:?}", query);
 
     let list_use_case = ListMediaUseCase::new(app_state.repository.clone());
 
     // For now, use a default user ID. In production, this would come from authentication
     let user_id = UserId::new();
 
-    let media_list = list_use_case.execute(query, user_id).await?;
+    let paginated_response = list_use_case.execute(query, user_id).await?;
 
-    tracing::info!("Retrieved {} media files", media_list.len());
+    tracing::info!(
+        "Retrieved paginated response with {} media files",
+        paginated_response.data.len()
+    );
 
-    Ok(Json(media_list))
+    Ok(Json(paginated_response))
 }
 
 /// Get media information by ID
@@ -615,7 +621,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_media_use_case_with_mock_repository() {
-        use crate::application::dto::ListMediaQuery;
+        use crate::application::dto::PaginatedMediaQuery;
         use crate::application::use_cases::ListMediaUseCase;
         use crate::domain::{
             entities::MediaId,
@@ -641,15 +647,15 @@ mod tests {
         let repository = Arc::new(InMemoryMediaRepository::new().with_media(media));
         let list_use_case = ListMediaUseCase::new(repository);
 
-        let query = ListMediaQuery { limit: Some(10), offset: Some(0), status: None };
+        let query = PaginatedMediaQuery { cursor: None, limit: Some(10), status: None };
 
         let result = list_use_case.execute(query, crate::domain::entities::UserId::new()).await;
         assert!(result.is_ok());
 
-        let media_list = result.unwrap();
+        let response = result.unwrap();
         // The repository might not find the media due to user filtering
         // For now, just ensure the operation succeeds
-        assert!(media_list.len() <= 1);
+        assert!(response.data.len() <= 1);
     }
 
     #[test]
