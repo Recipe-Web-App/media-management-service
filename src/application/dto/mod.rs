@@ -15,11 +15,42 @@ pub struct MediaDto {
     pub updated_at: String,  // ISO 8601 timestamp
 }
 
-/// Request DTO for uploading media
+/// Request DTO for uploading media (legacy direct upload)
 #[derive(Debug, Clone, Deserialize)]
 pub struct UploadMediaRequest {
     pub filename: String,
     // File content will be handled separately as a stream
+}
+
+/// Request DTO for initiating a presigned upload session
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InitiateUploadRequest {
+    pub filename: String,
+    pub content_type: String,
+    pub file_size: u64,
+}
+
+/// Response DTO for upload initiation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InitiateUploadResponse {
+    pub media_id: MediaId,
+    pub upload_url: String,
+    pub upload_token: String,
+    pub expires_at: String, // ISO 8601 timestamp
+    pub status: ProcessingStatus,
+}
+
+/// Response DTO for upload status checking
+#[derive(Debug, Clone, Serialize)]
+pub struct UploadStatusResponse {
+    pub media_id: MediaId,
+    pub status: ProcessingStatus,
+    pub progress: Option<u8>, // 0-100 percentage
+    pub error_message: Option<String>,
+    pub download_url: Option<String>,
+    pub processing_time_ms: Option<u64>,
+    pub uploaded_at: Option<String>,
+    pub completed_at: Option<String>,
 }
 
 /// Response DTO for successful upload

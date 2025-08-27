@@ -8,17 +8,21 @@ use std::sync::Arc;
 
 use crate::{
     application::{
-        dto::{MediaDto, PaginatedMediaQuery, PaginatedMediaResponse, UploadMediaResponse},
+        dto::{
+            InitiateUploadRequest, InitiateUploadResponse, MediaDto, PaginatedMediaQuery,
+            PaginatedMediaResponse, UploadMediaResponse, UploadStatusResponse,
+        },
         use_cases::{
             DownloadMediaUseCase, GetMediaByIngredientUseCase, GetMediaByRecipeUseCase,
-            GetMediaByStepUseCase, GetMediaUseCase, ListMediaUseCase, UploadMediaUseCase,
+            GetMediaByStepUseCase, GetMediaUseCase, InitiateUploadUseCase, ListMediaUseCase,
+            UploadMediaUseCase,
         },
     },
     domain::{
         entities::{IngredientId, MediaId, RecipeId, StepId, UserId},
         repositories::MediaRepository,
     },
-    infrastructure::storage::FilesystemStorage,
+    infrastructure::storage::{FilesystemStorage, PresignedUrlService},
     presentation::middleware::error::AppError,
 };
 
@@ -27,6 +31,7 @@ use crate::{
 pub struct AppState {
     pub repository: Arc<dyn MediaRepository<Error = AppError>>,
     pub storage: Arc<FilesystemStorage>,
+    pub presigned_url_service: PresignedUrlService,
     pub max_file_size: u64,
 }
 
@@ -34,9 +39,10 @@ impl AppState {
     pub fn new(
         repository: Arc<dyn MediaRepository<Error = AppError>>,
         storage: Arc<FilesystemStorage>,
+        presigned_url_service: PresignedUrlService,
         max_file_size: u64,
     ) -> Self {
-        Self { repository, storage, max_file_size }
+        Self { repository, storage, presigned_url_service, max_file_size }
     }
 }
 
@@ -132,6 +138,175 @@ pub async fn upload_media(
     tracing::info!("Media upload completed successfully: {}", response.media_id);
 
     Ok(Json(response))
+}
+
+/// Initiate a presigned URL upload session
+///
+/// Creates an upload session and returns a presigned URL that the client
+/// can use to upload the file directly. This enables better progress tracking
+/// and handling of large files.
+///
+/// # Errors
+/// Returns appropriate HTTP status codes for various error conditions
+pub async fn initiate_upload(
+    State(app_state): State<AppState>,
+    Json(request): Json<InitiateUploadRequest>,
+) -> Result<Json<InitiateUploadResponse>, AppError> {
+    tracing::info!(
+        "Initiating upload for file: {} (size: {} bytes)",
+        request.filename,
+        request.file_size
+    );
+
+    // For now, use a default user ID - in production this would come from authentication
+    let user_id = UserId::default();
+
+    let use_case = InitiateUploadUseCase::new(
+        app_state.repository.clone(),
+        app_state.presigned_url_service.clone(),
+        app_state.max_file_size,
+    );
+
+    let response = use_case.execute(request, user_id).await?;
+
+    tracing::info!(
+        "Upload session created successfully: media_id={}, expires={}",
+        response.media_id,
+        response.expires_at
+    );
+
+    Ok(Json(response))
+}
+
+/// Get upload status for a media item
+///
+/// Returns the current processing status of an uploaded media item.
+/// This endpoint is used for polling the status of uploads initiated
+/// via the presigned URL system.
+///
+/// # Errors
+/// Returns appropriate HTTP status codes for various error conditions
+pub async fn get_upload_status(
+    State(app_state): State<AppState>,
+    Path(media_id): Path<MediaId>,
+) -> Result<Json<UploadStatusResponse>, AppError> {
+    tracing::info!("Getting upload status for media_id: {}", media_id);
+
+    let get_media_use_case = GetMediaUseCase::new(app_state.repository.clone());
+
+    let media = get_media_use_case.execute(media_id).await?;
+
+    // Convert Media to UploadStatusResponse
+    let response = UploadStatusResponse {
+        media_id: media.id,
+        status: media.processing_status.clone(),
+        progress: match media.processing_status {
+            crate::domain::value_objects::ProcessingStatus::Processing => Some(50),
+            crate::domain::value_objects::ProcessingStatus::Complete => Some(100),
+            crate::domain::value_objects::ProcessingStatus::Pending
+            | crate::domain::value_objects::ProcessingStatus::Failed => Some(0),
+        },
+        error_message: None, // TODO: Add error message field to Media entity
+        download_url: if media.processing_status.is_complete() {
+            Some(format!("/api/v1/media-management/media/{}/download", media.id))
+        } else {
+            None
+        },
+        processing_time_ms: None, // TODO: Calculate processing time
+        uploaded_at: Some(media.uploaded_at),
+        completed_at: if media.processing_status.is_complete() {
+            Some(media.updated_at)
+        } else {
+            None
+        },
+    };
+
+    Ok(Json(response))
+}
+
+/// Handle file upload to presigned URL
+///
+/// This handler receives the actual file data for a presigned upload session.
+/// It validates the upload token/signature, processes the file, and updates
+/// the media record status.
+///
+/// # Errors
+/// Returns appropriate HTTP status codes for various error conditions
+pub async fn upload_file(
+    State(app_state): State<AppState>,
+    Path(upload_token): Path<String>,
+    Query(params): Query<UploadParams>,
+    body: Body,
+) -> Result<Json<UploadMediaResponse>, AppError> {
+    tracing::info!("Processing file upload for token: {}", upload_token);
+
+    // Validate the presigned URL parameters
+    app_state.presigned_url_service.validate_upload_url(
+        &upload_token,
+        &params.signature,
+        params.expires,
+        params.size,
+        &params.r#type,
+    )?;
+
+    // Collect the body into bytes
+    let body_bytes = match axum::body::to_bytes(body, params.size as usize).await {
+        Ok(bytes) => bytes,
+        Err(e) => {
+            tracing::error!("Failed to read request body: {}", e);
+            return Err(AppError::BadRequest {
+                message: "Failed to read uploaded file data".to_string(),
+            });
+        }
+    };
+
+    // Validate file size
+    if body_bytes.len() as u64 != params.size {
+        return Err(AppError::BadRequest {
+            message: format!(
+                "File size mismatch: expected {} bytes, got {} bytes",
+                params.size,
+                body_bytes.len()
+            ),
+        });
+    }
+
+    tracing::info!("Received file upload: {} bytes, type: {}", body_bytes.len(), params.r#type);
+
+    // Find the media record created during upload initiation
+    // For now, extract media ID from upload token
+    // TODO: This should look up the media record from the upload session in database
+    let _media_id = crate::domain::entities::MediaId::new(1); // Placeholder - should come from database lookup
+
+    // Create a cursor from the uploaded bytes
+    let file_reader = std::io::Cursor::new(body_bytes);
+
+    // Use the UploadMediaUseCase to process the file
+    let upload_use_case = crate::application::use_cases::UploadMediaUseCase::new(
+        app_state.repository.clone(),
+        app_state.storage.clone(),
+        app_state.max_file_size,
+    );
+
+    // For now, use default user ID. In production, this would come from the upload session
+    let user_id = crate::domain::entities::UserId::new();
+
+    // Extract filename from upload token (placeholder logic)
+    let filename = format!("upload_{upload_token}.bin");
+
+    // Process the upload with content type validation
+    let response =
+        upload_use_case.execute(file_reader, filename, user_id, Some(params.r#type)).await?;
+
+    Ok(Json(response))
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct UploadParams {
+    pub signature: String,
+    pub expires: i64,
+    pub size: u64,
+    pub r#type: String,
 }
 
 /// List media files with pagination
