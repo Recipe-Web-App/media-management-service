@@ -16,6 +16,9 @@ fn create_test_router() -> Router {
         .route("/media", get(media::list_media))
         .route("/media/:id", get(media::get_media))
         .route("/media/:id/download", get(media::download_media))
+        .route("/media/recipe/:recipe_id", get(media::get_media_by_recipe))
+        .route("/media/recipe/:recipe_id/ingredient/:ingredient_id", get(media::get_media_by_ingredient))
+        .route("/media/recipe/:recipe_id/step/:step_id", get(media::get_media_by_step))
 }
 
 #[tokio::test]

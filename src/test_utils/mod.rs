@@ -11,16 +11,31 @@ pub mod mocks {
     };
     use crate::presentation::middleware::error::AppError;
 
+    /// Type alias for recipe ingredient media mapping
+    type RecipeIngredientMediaMap = HashMap<(RecipeId, IngredientId), Vec<MediaId>>;
+
+    /// Type alias for recipe step media mapping
+    type RecipeStepMediaMap = HashMap<(RecipeId, StepId), Vec<MediaId>>;
+
     /// Simple in-memory mock repository for testing
     #[derive(Clone, Default)]
     pub struct InMemoryMediaRepository {
         storage: Arc<Mutex<HashMap<MediaId, Media>>>,
         next_id: Arc<Mutex<i64>>,
+        recipe_media: Arc<Mutex<HashMap<RecipeId, Vec<MediaId>>>>,
+        recipe_ingredient_media: Arc<Mutex<RecipeIngredientMediaMap>>,
+        recipe_step_media: Arc<Mutex<RecipeStepMediaMap>>,
     }
 
     impl InMemoryMediaRepository {
         pub fn new() -> Self {
-            Self { storage: Arc::new(Mutex::new(HashMap::new())), next_id: Arc::new(Mutex::new(1)) }
+            Self {
+                storage: Arc::new(Mutex::new(HashMap::new())),
+                next_id: Arc::new(Mutex::new(1)),
+                recipe_media: Arc::new(Mutex::new(HashMap::new())),
+                recipe_ingredient_media: Arc::new(Mutex::new(HashMap::new())),
+                recipe_step_media: Arc::new(Mutex::new(HashMap::new())),
+            }
         }
 
         /// # Panics
@@ -30,6 +45,52 @@ pub mod mocks {
             {
                 let mut storage = self.storage.lock().unwrap();
                 storage.insert(media.id, media);
+            }
+            self
+        }
+
+        /// Set up recipe ingredient media associations for testing
+        /// # Panics
+        /// Panics if the internal mutex is poisoned
+        #[must_use]
+        pub fn with_recipe_ingredient_media(
+            self,
+            recipe_id: RecipeId,
+            ingredient_id: IngredientId,
+            media_ids: Vec<MediaId>,
+        ) -> Self {
+            {
+                let mut ingredient_media = self.recipe_ingredient_media.lock().unwrap();
+                ingredient_media.insert((recipe_id, ingredient_id), media_ids);
+            }
+            self
+        }
+
+        /// Set up recipe media associations for testing
+        /// # Panics
+        /// Panics if the internal mutex is poisoned
+        #[must_use]
+        pub fn with_recipe_media(self, recipe_id: RecipeId, media_ids: Vec<MediaId>) -> Self {
+            {
+                let mut recipe_media = self.recipe_media.lock().unwrap();
+                recipe_media.insert(recipe_id, media_ids);
+            }
+            self
+        }
+
+        /// Set up recipe step media associations for testing
+        /// # Panics
+        /// Panics if the internal mutex is poisoned
+        #[must_use]
+        pub fn with_recipe_step_media(
+            self,
+            recipe_id: RecipeId,
+            step_id: StepId,
+            media_ids: Vec<MediaId>,
+        ) -> Self {
+            {
+                let mut step_media = self.recipe_step_media.lock().unwrap();
+                step_media.insert((recipe_id, step_id), media_ids);
             }
             self
         }
@@ -91,31 +152,28 @@ pub mod mocks {
 
         async fn find_media_ids_by_recipe(
             &self,
-            _recipe_id: RecipeId,
+            recipe_id: RecipeId,
         ) -> Result<Vec<MediaId>, Self::Error> {
-            // Mock implementation returns empty list
-            // In real tests, you would populate this with test data
-            Ok(vec![])
+            let recipe_media = self.recipe_media.lock().unwrap();
+            Ok(recipe_media.get(&recipe_id).cloned().unwrap_or_default())
         }
 
         async fn find_media_ids_by_recipe_ingredient(
             &self,
-            _recipe_id: RecipeId,
-            _ingredient_id: IngredientId,
+            recipe_id: RecipeId,
+            ingredient_id: IngredientId,
         ) -> Result<Vec<MediaId>, Self::Error> {
-            // Mock implementation returns empty list
-            // In real tests, you would populate this with test data
-            Ok(vec![])
+            let ingredient_media = self.recipe_ingredient_media.lock().unwrap();
+            Ok(ingredient_media.get(&(recipe_id, ingredient_id)).cloned().unwrap_or_default())
         }
 
         async fn find_media_ids_by_recipe_step(
             &self,
-            _recipe_id: RecipeId,
-            _step_id: StepId,
+            recipe_id: RecipeId,
+            step_id: StepId,
         ) -> Result<Vec<MediaId>, Self::Error> {
-            // Mock implementation returns empty list
-            // In real tests, you would populate this with test data
-            Ok(vec![])
+            let step_media = self.recipe_step_media.lock().unwrap();
+            Ok(step_media.get(&(recipe_id, step_id)).cloned().unwrap_or_default())
         }
 
         async fn health_check(&self) -> Result<(), Self::Error> {
