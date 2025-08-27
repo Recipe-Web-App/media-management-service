@@ -10,8 +10,9 @@ use crate::{
     application::{
         dto::{MediaDto, PaginatedMediaQuery, PaginatedMediaResponse, UploadMediaResponse},
         use_cases::{
-            DownloadMediaUseCase, GetMediaByIngredientUseCase, GetMediaByRecipeUseCase,
-            GetMediaByStepUseCase, GetMediaUseCase, ListMediaUseCase, UploadMediaUseCase,
+            DeleteMediaUseCase, DownloadMediaUseCase, GetMediaByIngredientUseCase,
+            GetMediaByRecipeUseCase, GetMediaByStepUseCase, GetMediaUseCase, ListMediaUseCase,
+            UploadMediaUseCase,
         },
     },
     domain::{
@@ -178,6 +179,32 @@ pub async fn get_media(
     tracing::info!("Retrieved media: {}", media_dto.original_filename);
 
     Ok(Json(media_dto))
+}
+
+/// Delete media by ID
+///
+/// Removes both the database record and the associated file from storage.
+/// Returns 204 No Content on successful deletion.
+///
+/// # Errors
+/// Returns appropriate HTTP status codes for various error conditions:
+/// - 404 Not Found: Media with the given ID doesn't exist
+/// - 500 Internal Server Error: Storage or database operation failed
+pub async fn delete_media(
+    State(app_state): State<AppState>,
+    Path(id): Path<MediaId>,
+) -> Result<StatusCode, AppError> {
+    tracing::info!("Processing delete media request for ID: {}", id);
+
+    let delete_use_case =
+        DeleteMediaUseCase::new(app_state.repository.clone(), app_state.storage.clone());
+
+    delete_use_case.execute(id).await?;
+
+    tracing::info!("Successfully deleted media: {}", id);
+
+    // Return 204 No Content to indicate successful deletion
+    Ok(StatusCode::NO_CONTENT)
 }
 
 /// Download media file

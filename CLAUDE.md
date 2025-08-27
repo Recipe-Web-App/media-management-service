@@ -325,6 +325,7 @@ The service exposes HTTP endpoints following RESTful patterns:
 - `POST /media/` - Upload media files
 - `GET /media/` - List media with cursor-based pagination
 - `GET /media/{id}` - Get media metadata
+- `DELETE /media/{id}` - Delete media files
 - `GET /media/{id}/download` - Download media files
 
 #### GET `/media/` - List Media with Cursor-Based Pagination
@@ -461,6 +462,62 @@ curl "http://localhost:3000/api/v1/media-management/media/123"
 
 # Using the service URL in Kubernetes
 curl "http://media-management.local/api/v1/media-management/media/123"
+```
+
+#### DELETE `/media/{id}` - Delete Media
+
+Permanently deletes a media file and its associated database record. This operation removes both the file from storage
+and the metadata from the database.
+
+**Parameters:**
+
+- `id` (path parameter): The unique identifier of the media file to delete (integer)
+
+**Response:**
+
+- **204 No Content** - Media successfully deleted
+- **400 Bad Request** - Invalid media ID format
+- **404 Not Found** - Media not found
+- **500 Internal Server Error** - Storage or database operation failed
+
+**Successful Response:**
+
+Returns an empty response body with status 204 No Content.
+
+**Error Response Format:**
+
+```json
+{
+  "error": "Not Found",
+  "message": "Media with ID 123"
+}
+```
+
+**Security Considerations:**
+
+- Users can only delete media files they own
+- Content-addressable storage prevents path traversal attacks
+- Audit logging records all deletion operations
+- Graceful handling of partial failures (e.g., file deleted but database operation fails)
+
+**Storage Behavior:**
+
+- Files are permanently removed from the filesystem
+- Content deduplication is respected - files shared between multiple media records are preserved
+- Empty directories are cleaned up after file deletion
+- Operation continues even if storage deletion fails (handles pre-deleted files)
+
+**Example Usage:**
+
+```bash
+# Delete media with ID 123
+curl -X DELETE "http://localhost:3000/api/v1/media-management/media/123"
+
+# Using the service URL in Kubernetes
+curl -X DELETE "http://media-management.local/api/v1/media-management/media/123"
+
+# Check if deletion was successful (should return 404)
+curl "http://localhost:3000/api/v1/media-management/media/123"
 ```
 
 **Recipe-Related Media Endpoints**:
