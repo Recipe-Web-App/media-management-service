@@ -327,6 +327,62 @@ The service exposes HTTP endpoints following RESTful patterns:
 - `GET /media/{id}` - Get media metadata
 - `GET /media/{id}/download` - Download media files
 
+#### GET `/media/{id}` - Get Media Metadata
+
+Retrieves metadata for a specific media file by its ID.
+
+**Parameters:**
+
+- `id` (path parameter): The unique identifier of the media file (integer)
+
+**Response:**
+
+- **200 OK** - Successfully retrieved media metadata
+- **400 Bad Request** - Invalid media ID format
+- **404 Not Found** - Media not found
+
+**Success Response Format:**
+
+```json
+{
+  "id": 123,
+  "content_hash": "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+  "original_filename": "example-image.jpg",
+  "media_type": "image/jpeg",
+  "media_path": "ab/cd/ef/abcdef123456",
+  "file_size": 1048576,
+  "processing_status": "Complete",
+  "uploaded_at": "2025-01-15T10:30:00Z",
+  "updated_at": "2025-01-15T10:30:00Z"
+}
+```
+
+**Error Response Format:**
+
+```json
+{
+  "error": "Not Found",
+  "message": "Media with ID 123"
+}
+```
+
+**Processing Status Values:**
+
+- `"Pending"` - Media uploaded but not yet processed
+- `"Processing"` - Media currently being processed
+- `"Complete"` - Media successfully processed and available
+- `"Failed"` - Processing failed
+
+**Example Usage:**
+
+```bash
+# Get metadata for media ID 123
+curl "http://localhost:3000/api/v1/media-management/media/123"
+
+# Using the service URL in Kubernetes
+curl "http://media-management.local/api/v1/media-management/media/123"
+```
+
 **Recipe-Related Media Endpoints**:
 
 - `GET /media/recipe/{recipe_id}` - Get media IDs for a recipe
