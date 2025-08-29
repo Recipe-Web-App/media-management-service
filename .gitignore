@@ -26,6 +26,9 @@ tmp/
 # Logs
 logs/
 
+# Local media storage
+media/
+
 # Added by Pre-Commit
 node_modules/
 
