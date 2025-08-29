@@ -21,7 +21,7 @@ use uuid::Uuid;
 use crate::{
     infrastructure::{
         config::AppConfig,
-        persistence::{Database, DisconnectedMediaRepository, PostgreSqlMediaRepository},
+        persistence::{Database, ReconnectingMediaRepository},
         storage::{FileStorage, FilesystemStorage},
     },
     presentation::{
@@ -45,9 +45,8 @@ impl MakeRequestId for EnhancedRequestId {
 
 /// Create the main application router
 ///
-/// Creates an application with either a connected repository (when database is available)
-/// or a disconnected repository (when database fails to connect). The disconnected
-/// repository will fail all health checks, allowing proper status reporting.
+/// Creates an application with a reconnecting repository that automatically handles
+/// database connection failures and attempts periodic reconnection.
 pub fn create_app(config: &AppConfig, database: Option<&Database>) -> Router {
     let middleware_stack = ServiceBuilder::new()
         .layer(SetRequestIdLayer::new(
@@ -63,15 +62,34 @@ pub fn create_app(config: &AppConfig, database: Option<&Database>) -> Router {
             usize::try_from(config.server.max_upload_size).unwrap_or(100_000_000),
         ));
 
-    // Create repository - use connected or disconnected based on database availability
+    // Create reconnecting repository that handles connection failures automatically
     let media_repo: std::sync::Arc<
         dyn crate::domain::repositories::MediaRepository<Error = AppError>,
     > = if let Some(db) = database {
-        std::sync::Arc::new(PostgreSqlMediaRepository::new(db.pool().clone()))
+        // Start with a connected repository
+        let reconnecting_repo =
+            ReconnectingMediaRepository::with_connection(config.postgres.clone(), db);
+
+        // Start background reconnection task
+        let reconnection_handle = reconnecting_repo.clone().start_reconnection_task();
+
+        // Store the task handle (in a real application, you might want to store this
+        // somewhere to gracefully shut it down on service shutdown)
+        std::mem::forget(reconnection_handle);
+
+        std::sync::Arc::new(reconnecting_repo)
     } else {
-        std::sync::Arc::new(DisconnectedMediaRepository::new(
+        // Start with a disconnected repository that will attempt reconnection
+        let reconnecting_repo = ReconnectingMediaRepository::new(
+            config.postgres.clone(),
             "Database connection failed during startup".to_string(),
-        ))
+        );
+
+        // Start background reconnection task
+        let reconnection_handle = reconnecting_repo.clone().start_reconnection_task();
+        std::mem::forget(reconnection_handle);
+
+        std::sync::Arc::new(reconnecting_repo)
     };
 
     let file_storage = std::sync::Arc::new(FilesystemStorage::new(&config.storage.base_path));
@@ -85,9 +103,9 @@ pub fn create_app(config: &AppConfig, database: Option<&Database>) -> Router {
         AppState::new(media_repo, file_storage, presigned_service, config.storage.max_file_size);
 
     if database.is_some() {
-        tracing::info!("Creating application with database connection and full functionality");
+        tracing::info!("Creating application with database connection - will attempt reconnection if connection is lost");
     } else {
-        tracing::warn!("Creating application with disconnected repository - health/readiness checks will report database unavailable");
+        tracing::warn!("Creating application with disconnected repository - will attempt periodic reconnection every 30 seconds");
     }
 
     Router::new()
@@ -519,10 +537,10 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_create_app_without_database() {
+    #[tokio::test]
+    async fn test_create_app_without_database() {
         let config = create_test_config();
-        // This should now succeed but use disconnected repository
+        // This should now succeed but use reconnecting repository
         let app = create_app(&config, None);
         // Verify app is created successfully
         assert!(std::ptr::addr_of!(app).is_aligned());
