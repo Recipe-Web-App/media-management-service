@@ -141,9 +141,18 @@ pub async fn health_check_with_dependencies(
     .await;
 
     let (database_status, database_response_time, database_healthy) = match database_check {
-        Ok((Ok(()), response_time)) => ("healthy", response_time, true),
-        Ok((Err(_), response_time)) => ("unhealthy", response_time, false),
-        Err(_) => ("timeout", 2000, false), // Timeout occurred
+        Ok((Ok(()), response_time)) => {
+            tracing::debug!("Database health check: healthy ({}ms)", response_time);
+            ("healthy", response_time, true)
+        }
+        Ok((Err(e), response_time)) => {
+            tracing::debug!("Database health check: unhealthy ({}ms) - {}", response_time, e);
+            ("unhealthy", response_time, false)
+        }
+        Err(_) => {
+            tracing::debug!("Database health check: timeout (2000ms)");
+            ("timeout", 2000, false) // Timeout occurred
+        }
     };
 
     // Check storage health
@@ -156,18 +165,43 @@ pub async fn health_check_with_dependencies(
     .await;
 
     let (storage_status, storage_response_time, storage_healthy) = match storage_check {
-        Ok((Ok(()), response_time)) => ("healthy", response_time, true),
-        Ok((Err(_), response_time)) => ("unhealthy", response_time, false),
-        Err(_) => ("timeout", 2000, false), // Timeout occurred
+        Ok((Ok(()), response_time)) => {
+            tracing::debug!("Storage health check: healthy ({}ms)", response_time);
+            ("healthy", response_time, true)
+        }
+        Ok((Err(e), response_time)) => {
+            tracing::debug!("Storage health check: unhealthy ({}ms) - {}", response_time, e);
+            ("unhealthy", response_time, false)
+        }
+        Err(_) => {
+            tracing::debug!("Storage health check: timeout (2000ms)");
+            ("timeout", 2000, false) // Timeout occurred
+        }
     };
 
     // Determine overall health status
+    // Service should be considered operational if storage is working, even without database
     let overall_status = if database_healthy && storage_healthy {
+        tracing::debug!(
+            "Overall health: healthy (database: {}, storage: {})",
+            database_healthy,
+            storage_healthy
+        );
         "healthy"
-    } else if database_healthy || storage_healthy {
-        "degraded" // At least one component is working
+    } else if storage_healthy {
+        tracing::debug!(
+            "Overall health: degraded (database: {}, storage: {})",
+            database_healthy,
+            storage_healthy
+        );
+        "degraded" // Storage working allows basic operation
     } else {
-        "unhealthy"
+        tracing::debug!(
+            "Overall health: unhealthy (database: {}, storage: {})",
+            database_healthy,
+            storage_healthy
+        );
+        "unhealthy" // Cannot function without storage
     };
 
     let total_response_time = start_time.elapsed().as_millis() as u64;
@@ -257,7 +291,7 @@ pub async fn readiness_check_with_dependencies(
     })
     .await;
 
-    let (database_status, database_response_time, database_ready) = match database_check {
+    let (database_status, database_response_time, _database_ready) = match database_check {
         Ok((Ok(()), response_time)) => ("ready", response_time, true),
         Ok((Err(_), response_time)) => ("not_ready", response_time, false),
         Err(_) => ("timeout", 2000, false), // Timeout occurred
@@ -278,8 +312,8 @@ pub async fn readiness_check_with_dependencies(
         Err(_) => ("timeout", 2000, false), // Timeout occurred
     };
 
-    // Determine overall readiness status - ALL dependencies must be ready
-    let overall_status = if database_ready && storage_ready { "ready" } else { "not_ready" };
+    // Determine overall readiness status - storage must be ready for basic operation
+    let overall_status = if storage_ready { "ready" } else { "not_ready" };
 
     let total_response_time = start_time.elapsed().as_millis() as u64;
 
