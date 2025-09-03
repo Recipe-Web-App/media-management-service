@@ -13,25 +13,77 @@ use uuid::Uuid;
 
 use super::error::AppError;
 
-/// JWT token claims
+/// JWT token claims - `OAuth2` compatible format
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
-    pub sub: String,        // Subject (user ID)
-    pub email: String,      // User email
-    pub roles: Vec<String>, // User roles
-    pub exp: usize,         // Expiration time
-    pub iat: usize,         // Issued at
-    pub jti: String,        // JWT ID (unique identifier)
+    pub iss: String,             // Issuer
+    pub aud: Vec<String>,        // Audience
+    pub sub: String,             // Subject (user ID)
+    pub client_id: String,       // OAuth2 client ID
+    pub user_id: Option<String>, // User ID (for user tokens)
+    pub scopes: Vec<String>,     // OAuth2 scopes
+    #[serde(rename = "type")]
+    pub token_type: String, // Token type ("access_token", "client_credentials")
+    pub exp: usize,              // Expiration time
+    pub iat: usize,              // Issued at
+    pub nbf: usize,              // Not before
+    pub jti: String,             // JWT ID (unique identifier)
 }
 
 impl Claims {
-    /// Create new claims for a user
+    /// Create new OAuth2-compatible access token claims
     #[must_use]
-    pub fn new(user_id: String, email: String, roles: Vec<String>, expires_in_hours: u64) -> Self {
+    pub fn new_access_token(
+        issuer: String,
+        audience: Vec<String>,
+        user_id: String,
+        client_id: String,
+        scopes: Vec<String>,
+        expires_in_hours: u64,
+    ) -> Self {
         let now = chrono::Utc::now().timestamp().max(0) as u64 as usize;
         let exp = now + (expires_in_hours * 3600) as usize;
 
-        Self { sub: user_id, email, roles, exp, iat: now, jti: Uuid::new_v4().to_string() }
+        Self {
+            iss: issuer,
+            aud: audience,
+            sub: user_id.clone(),
+            client_id,
+            user_id: Some(user_id),
+            scopes,
+            token_type: "access_token".to_string(),
+            exp,
+            iat: now,
+            nbf: now,
+            jti: Uuid::new_v4().to_string(),
+        }
+    }
+
+    /// Create new OAuth2-compatible client credentials token claims
+    #[must_use]
+    pub fn new_client_credentials(
+        issuer: String,
+        audience: Vec<String>,
+        client_id: String,
+        scopes: Vec<String>,
+        expires_in_hours: u64,
+    ) -> Self {
+        let now = chrono::Utc::now().timestamp().max(0) as u64 as usize;
+        let exp = now + (expires_in_hours * 3600) as usize;
+
+        Self {
+            iss: issuer,
+            aud: audience,
+            sub: client_id.clone(),
+            client_id,
+            user_id: None,
+            scopes,
+            token_type: "client_credentials".to_string(),
+            exp,
+            iat: now,
+            nbf: now,
+            jti: Uuid::new_v4().to_string(),
+        }
     }
 
     /// Check if token is expired
@@ -40,47 +92,95 @@ impl Claims {
         self.exp < now
     }
 
-    /// Check if user has a specific role
-    pub fn has_role(&self, role: &str) -> bool {
-        self.roles.iter().any(|r| r == role)
+    /// Check if token is not yet valid (nbf check)
+    pub fn is_not_yet_valid(&self) -> bool {
+        let now = chrono::Utc::now().timestamp().max(0) as u64 as usize;
+        self.nbf > now
     }
 
-    /// Check if user has any of the specified roles
-    pub fn has_any_role(&self, roles: &[&str]) -> bool {
-        self.roles.iter().any(|user_role| roles.contains(&user_role.as_str()))
+    /// Check if user has a specific scope
+    pub fn has_scope(&self, scope: &str) -> bool {
+        self.scopes.iter().any(|s| s == scope)
+    }
+
+    /// Check if user has any of the specified scopes
+    pub fn has_any_scope(&self, scopes: &[&str]) -> bool {
+        self.scopes.iter().any(|user_scope| scopes.contains(&user_scope.as_str()))
+    }
+
+    /// Check if this is a user token (has `user_id`)
+    pub fn is_user_token(&self) -> bool {
+        self.user_id.is_some() && self.token_type == "access_token"
+    }
+
+    /// Check if this is a client credentials token
+    pub fn is_client_token(&self) -> bool {
+        self.token_type == "client_credentials"
     }
 }
 
-/// User context extracted from JWT
+/// User context extracted from JWT - `OAuth2` compatible
 #[derive(Debug, Clone)]
 pub struct UserContext {
-    pub user_id: String,
-    pub email: String,
-    pub roles: Vec<String>,
-    pub token_id: String,
+    pub user_id: Option<String>, // User ID (None for client credentials)
+    pub client_id: String,       // OAuth2 client ID
+    pub subject: String,         // JWT subject (user_id or client_id)
+    pub scopes: Vec<String>,     // OAuth2 scopes
+    pub token_type: String,      // Token type
+    pub token_id: String,        // JWT ID
+    pub issuer: String,          // Token issuer
+    pub audience: Vec<String>,   // Token audience
 }
 
 impl UserContext {
-    /// Check if user has any of the specified roles
-    pub fn has_any_role(&self, required_roles: &[String]) -> bool {
-        self.roles.iter().any(|role| required_roles.contains(role))
+    /// Check if user has any of the specified scopes
+    pub fn has_any_scope(&self, required_scopes: &[&str]) -> bool {
+        self.scopes.iter().any(|scope| required_scopes.contains(&scope.as_str()))
     }
 
-    /// Check if user has a specific role
-    pub fn has_role(&self, role: &str) -> bool {
-        self.roles.iter().any(|r| r == role)
+    /// Check if user has a specific scope
+    pub fn has_scope(&self, scope: &str) -> bool {
+        self.scopes.iter().any(|s| s == scope)
+    }
+
+    /// Check if this is a user token (has `user_id`)
+    pub fn is_user_token(&self) -> bool {
+        self.user_id.is_some() && self.token_type == "access_token"
+    }
+
+    /// Check if this is a client credentials token
+    pub fn is_client_token(&self) -> bool {
+        self.token_type == "client_credentials"
+    }
+
+    /// Get the effective user ID (`user_id` for user tokens, `client_id` for client tokens)
+    pub fn effective_user_id(&self) -> &str {
+        self.user_id.as_ref().unwrap_or(&self.client_id)
     }
 }
 
 impl From<Claims> for UserContext {
     fn from(claims: Claims) -> Self {
-        Self { user_id: claims.sub, email: claims.email, roles: claims.roles, token_id: claims.jti }
+        Self {
+            user_id: claims.user_id,
+            client_id: claims.client_id,
+            subject: claims.sub,
+            scopes: claims.scopes,
+            token_type: claims.token_type,
+            token_id: claims.jti,
+            issuer: claims.iss,
+            audience: claims.aud,
+        }
     }
 }
 
 impl fmt::Display for UserContext {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "User(id={}, email={}, roles={:?})", self.user_id, self.email, self.roles)
+        write!(
+            f,
+            "UserContext(user_id={:?}, client_id={}, scopes={:?}, token_type={})",
+            self.user_id, self.client_id, self.scopes, self.token_type
+        )
     }
 }
 
@@ -95,8 +195,20 @@ pub struct JwtService {
 impl JwtService {
     /// Create new JWT service with secret
     pub fn new(secret: &str) -> Self {
+        Self::new_with_validation(secret, None)
+    }
+
+    /// Create new JWT service with secret and optional audience validation
+    pub fn new_with_validation(secret: &str, required_audience: Option<&str>) -> Self {
         let mut validation = Validation::new(Algorithm::HS256);
         validation.validate_exp = true;
+
+        if let Some(aud) = required_audience {
+            validation.validate_aud = true;
+            validation.aud = Some([aud.to_string()].into());
+        } else {
+            validation.validate_aud = false;
+        }
 
         Self {
             encoding_key: EncodingKey::from_secret(secret.as_ref()),
@@ -128,15 +240,38 @@ impl JwtService {
             })
     }
 
-    /// Create token for user
-    pub fn create_token(
+    /// Create access token for user
+    pub fn create_access_token(
         &self,
+        issuer: String,
+        audience: Vec<String>,
         user_id: String,
-        email: String,
-        roles: Vec<String>,
+        client_id: String,
+        scopes: Vec<String>,
         expires_in_hours: u64,
     ) -> Result<String, JwtError> {
-        let claims = Claims::new(user_id, email, roles, expires_in_hours);
+        let claims = Claims::new_access_token(
+            issuer,
+            audience,
+            user_id,
+            client_id,
+            scopes,
+            expires_in_hours,
+        );
+        self.encode_claims(&claims)
+    }
+
+    /// Create client credentials token
+    pub fn create_client_credentials_token(
+        &self,
+        issuer: String,
+        audience: Vec<String>,
+        client_id: String,
+        scopes: Vec<String>,
+        expires_in_hours: u64,
+    ) -> Result<String, JwtError> {
+        let claims =
+            Claims::new_client_credentials(issuer, audience, client_id, scopes, expires_in_hours);
         self.encode_claims(&claims)
     }
 }
@@ -217,10 +352,14 @@ where
         debug!("Token received: {}", token.len()); // Just use the token somehow
 
         Ok(UserContext {
-            user_id: "mock-user-id".to_string(),
-            email: "mock@example.com".to_string(),
-            roles: vec!["user".to_string()],
+            user_id: Some("mock-user-id".to_string()),
+            client_id: "mock-client-id".to_string(),
+            subject: "mock-user-id".to_string(),
+            scopes: vec!["read".to_string(), "write".to_string()],
+            token_type: "access_token".to_string(),
             token_id: Uuid::new_v4().to_string(),
+            issuer: "mock-issuer".to_string(),
+            audience: vec!["mock-audience".to_string()],
         })
     }
 }
@@ -247,10 +386,14 @@ pub async fn auth_middleware(mut request: Request, next: Next) -> Result<Respons
     // TODO: Decode token, validate claims, and add user context to request extensions
     // For now, add a mock user context
     let user_context = UserContext {
-        user_id: "mock-user-id".to_string(),
-        email: "user@example.com".to_string(),
-        roles: vec!["user".to_string()],
+        user_id: Some("mock-user-id".to_string()),
+        client_id: "mock-client-id".to_string(),
+        subject: "mock-user-id".to_string(),
+        scopes: vec!["read".to_string(), "write".to_string()],
+        token_type: "access_token".to_string(),
         token_id: Uuid::new_v4().to_string(),
+        issuer: "mock-issuer".to_string(),
+        audience: vec!["mock-audience".to_string()],
     };
 
     debug!("Authenticated user: {}", user_context);
@@ -270,10 +413,14 @@ pub async fn optional_auth_middleware(mut request: Request, next: Next) -> Respo
             if !token.is_empty() && token != "invalid" {
                 // TODO: Actual token validation
                 let user_context = UserContext {
-                    user_id: "mock-user-id".to_string(),
-                    email: "user@example.com".to_string(),
-                    roles: vec!["user".to_string()],
+                    user_id: Some("mock-user-id".to_string()),
+                    client_id: "mock-client-id".to_string(),
+                    subject: "mock-user-id".to_string(),
+                    scopes: vec!["read".to_string(), "write".to_string()],
+                    token_type: "access_token".to_string(),
                     token_id: Uuid::new_v4().to_string(),
+                    issuer: "mock-issuer".to_string(),
+                    audience: vec!["mock-audience".to_string()],
                 };
 
                 debug!("Optional auth: authenticated user: {}", user_context);
@@ -302,21 +449,19 @@ pub fn require_roles(
                 AppError::Authentication { message: "Authentication required".to_string() }
             })?;
 
-            // Check if user has required roles
-            let required_roles_strings: Vec<String> =
-                required_roles.iter().map(std::string::ToString::to_string).collect();
-            if !user_context.has_any_role(&required_roles_strings) {
+            // Check if user has required roles (mapped to scopes)
+            if !user_context.has_any_scope(&required_roles) {
                 return Err(AppError::Authorization {
                     message: format!(
-                        "Access denied. Required roles: {:?}, user roles: {:?}",
-                        required_roles, user_context.roles
+                        "Access denied. Required scopes: {:?}, user scopes: {:?}",
+                        required_roles, user_context.scopes
                     ),
                 });
             }
 
             debug!(
-                "Authorization successful for user {} with roles {:?}",
-                user_context.user_id, user_context.roles
+                "Authorization successful for user {:?} with scopes {:?}",
+                user_context.user_id, user_context.scopes
             );
 
             Ok(next.run(request).await)
@@ -347,62 +492,85 @@ mod tests {
     }
 
     #[test]
-    fn test_claims_creation() {
-        let claims = Claims::new(
+    fn test_access_token_claims_creation() {
+        let claims = Claims::new_access_token(
+            "auth-service".to_string(),
+            vec!["test-client".to_string()],
             "user123".to_string(),
-            "test@example.com".to_string(),
-            vec!["user".to_string(), "admin".to_string()],
+            "test-client".to_string(),
+            vec!["read".to_string(), "write".to_string()],
             24,
         );
 
         assert_eq!(claims.sub, "user123");
-        assert_eq!(claims.email, "test@example.com");
-        assert_eq!(claims.roles, vec!["user", "admin"]);
+        assert_eq!(claims.client_id, "test-client");
+        assert_eq!(claims.user_id, Some("user123".to_string()));
+        assert_eq!(claims.scopes, vec!["read", "write"]);
+        assert_eq!(claims.token_type, "access_token");
         assert!(!claims.is_expired());
-        assert!(claims.has_role("user"));
-        assert!(claims.has_role("admin"));
-        assert!(!claims.has_role("superuser"));
+        assert!(!claims.is_not_yet_valid());
+        assert!(claims.is_user_token());
+        assert!(!claims.is_client_token());
+        assert!(claims.has_scope("read"));
+        assert!(claims.has_scope("write"));
+        assert!(!claims.has_scope("admin"));
     }
 
     #[test]
-    fn test_claims_role_checking() {
-        let claims = Claims::new(
-            "user123".to_string(),
-            "test@example.com".to_string(),
-            vec!["user".to_string(), "editor".to_string()],
-            24,
+    fn test_client_credentials_claims_creation() {
+        let claims = Claims::new_client_credentials(
+            "auth-service".to_string(),
+            vec!["api-service".to_string()],
+            "service-client".to_string(),
+            vec!["read".to_string(), "admin".to_string()],
+            1,
         );
 
-        assert!(claims.has_any_role(&["user", "admin"]));
-        assert!(claims.has_any_role(&["editor"]));
-        assert!(!claims.has_any_role(&["admin", "superuser"]));
+        assert_eq!(claims.sub, "service-client");
+        assert_eq!(claims.client_id, "service-client");
+        assert_eq!(claims.user_id, None);
+        assert_eq!(claims.scopes, vec!["read", "admin"]);
+        assert_eq!(claims.token_type, "client_credentials");
+        assert!(!claims.is_user_token());
+        assert!(claims.is_client_token());
+        assert!(claims.has_any_scope(&["read", "write"]));
+        assert!(claims.has_any_scope(&["admin"]));
+        assert!(!claims.has_any_scope(&["write", "superuser"]));
     }
 
     #[test]
     fn test_user_context_from_claims() {
-        let claims = Claims::new(
+        let claims = Claims::new_access_token(
+            "auth-service".to_string(),
+            vec!["test-client".to_string()],
             "user456".to_string(),
-            "user@test.com".to_string(),
+            "test-client".to_string(),
             vec!["moderator".to_string()],
             12,
         );
 
         let context: UserContext = claims.clone().into();
-        assert_eq!(context.user_id, "user456");
-        assert_eq!(context.email, "user@test.com");
-        assert_eq!(context.roles, vec!["moderator"]);
+        assert_eq!(context.user_id, Some("user456".to_string()));
+        assert_eq!(context.client_id, "test-client");
+        assert_eq!(context.subject, "user456");
+        assert_eq!(context.scopes, vec!["moderator"]);
+        assert_eq!(context.token_type, "access_token");
         assert_eq!(context.token_id, claims.jti);
+        assert!(context.has_scope("moderator"));
+        assert!(!context.has_scope("admin"));
     }
 
     #[test]
-    fn test_jwt_service_token_creation() {
+    fn test_jwt_service_access_token_creation() {
         let service = JwtService::new("test-secret-key");
 
         let token = service
-            .create_token(
+            .create_access_token(
+                "auth-service".to_string(),
+                vec!["test-client".to_string()],
                 "user123".to_string(),
-                "test@example.com".to_string(),
-                vec!["user".to_string()],
+                "test-client".to_string(),
+                vec!["read".to_string(), "write".to_string()],
                 24,
             )
             .unwrap();
@@ -413,8 +581,10 @@ mod tests {
         // Verify we can decode it back
         let decoded_claims = service.decode_token(&token).unwrap();
         assert_eq!(decoded_claims.sub, "user123");
-        assert_eq!(decoded_claims.email, "test@example.com");
-        assert_eq!(decoded_claims.roles, vec!["user"]);
+        assert_eq!(decoded_claims.client_id, "test-client");
+        assert_eq!(decoded_claims.user_id, Some("user123".to_string()));
+        assert_eq!(decoded_claims.scopes, vec!["read", "write"]);
+        assert_eq!(decoded_claims.token_type, "access_token");
     }
 
     #[test]
@@ -432,10 +602,12 @@ mod tests {
         let service = JwtService::new("test-secret-key");
 
         // Create claims that are already expired
-        let mut claims = Claims::new(
+        let mut claims = Claims::new_access_token(
+            "auth-service".to_string(),
+            vec!["test-client".to_string()],
             "user123".to_string(),
-            "test@example.com".to_string(),
-            vec!["user".to_string()],
+            "test-client".to_string(),
+            vec!["read".to_string()],
             1,
         );
         claims.exp = 0; // Set to epoch (definitely expired)
@@ -548,31 +720,42 @@ mod tests {
     }
 
     #[test]
-    fn test_user_context_has_any_role() {
+    fn test_user_context_has_any_scope() {
         let context = UserContext {
-            user_id: "test".to_string(),
-            email: "test@example.com".to_string(),
-            roles: vec!["user".to_string(), "editor".to_string()],
+            user_id: Some("test".to_string()),
+            client_id: "test-client".to_string(),
+            subject: "test".to_string(),
+            scopes: vec!["read".to_string(), "write".to_string()],
+            token_type: "access_token".to_string(),
             token_id: "token123".to_string(),
+            issuer: "auth-service".to_string(),
+            audience: vec!["test-client".to_string()],
         };
 
-        assert!(context.has_any_role(&["admin".to_string(), "user".to_string()]));
-        assert!(context.has_any_role(&["editor".to_string()]));
-        assert!(!context.has_any_role(&["admin".to_string(), "superuser".to_string()]));
+        assert!(context.has_any_scope(&["admin", "read"]));
+        assert!(context.has_any_scope(&["write"]));
+        assert!(!context.has_any_scope(&["admin", "superuser"]));
+        assert!(context.is_user_token());
+        assert!(!context.is_client_token());
     }
 
     #[test]
     fn test_user_context_display() {
         let context = UserContext {
-            user_id: "user123".to_string(),
-            email: "test@example.com".to_string(),
-            roles: vec!["admin".to_string()],
+            user_id: Some("user123".to_string()),
+            client_id: "test-client".to_string(),
+            subject: "user123".to_string(),
+            scopes: vec!["admin".to_string()],
+            token_type: "access_token".to_string(),
             token_id: "token456".to_string(),
+            issuer: "auth-service".to_string(),
+            audience: vec!["test-client".to_string()],
         };
 
         let display_str = context.to_string();
         assert!(display_str.contains("user123"));
-        assert!(display_str.contains("test@example.com"));
+        assert!(display_str.contains("test-client"));
         assert!(display_str.contains("admin"));
+        assert!(display_str.contains("access_token"));
     }
 }

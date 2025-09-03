@@ -35,6 +35,7 @@ observability and monitoring.
 
 ### Production Features
 
+- **[OAuth2 Integration](https://oauth.net/2/)** - Full OAuth2 authentication with JWT validation and token introspection
 - **[OpenTelemetry](https://opentelemetry.io/)** - Distributed tracing and metrics
 - **[Tracing](https://github.com/tokio-rs/tracing)** - Structured logging with correlation IDs
 - **Content-Addressable Storage** - SHA-256 based file organization
@@ -131,9 +132,26 @@ The service supports two runtime modes:
 
 ### Environment Files
 
-- **`.env.local`** - Local development configuration
+- **`.env.local`** - Local development configuration (includes OAuth2 settings)
 - **`.env.prod`** - Production deployment configuration (used by deployment scripts)
-- **`.env.example`** - Template and documentation
+- **`.env.example`** - Template and documentation with OAuth2 configuration variables
+
+**Key OAuth2 Configuration Variables:**
+
+```bash
+# OAuth2 Service Integration
+OAUTH2_SERVICE_ENABLED=true
+OAUTH2_CLIENT_ID=recipe-service-client
+OAUTH2_CLIENT_SECRET=your-oauth2-client-secret-here
+OAUTH2_SERVICE_BASE_URL=http://localhost:8080/api/v1/auth
+
+# JWT Configuration (must match auth service)
+JWT_SECRET=your-very-secure-secret-key-at-least-32-characters-long
+
+# Authentication Features
+OAUTH2_INTROSPECTION_ENABLED=false  # Use JWT validation (offline) vs API introspection (online)
+OAUTH2_SERVICE_TO_SERVICE_ENABLED=true  # Enable service-to-service authentication
+```
 
 ### Development Commands
 
@@ -180,6 +198,9 @@ pre-commit run --all-files    # Run all quality checks manually
 
 Base URL: `http://localhost:3000/api/v1/media-management`
 
+**Authentication:** All media endpoints (except health checks) require OAuth2 JWT authentication via
+`Authorization: Bearer {jwt_token}` header.
+
 - `POST /media/` - Upload new media file
 - `GET /media/` - List media files (with optional query parameters)
 - `GET /media/{id}` - Get media metadata by ID
@@ -189,30 +210,38 @@ Base URL: `http://localhost:3000/api/v1/media-management`
 **Example Usage:**
 
 ```bash
-# Health check
+# Health check (no auth required)
 curl http://localhost:3000/api/v1/media-management/health
 
-# Upload media (multipart form-data)
+# Upload media (multipart form-data) - requires JWT token
 curl -X POST http://localhost:3000/api/v1/media-management/media/ \
+  -H "Authorization: Bearer <your-jwt-token>" \
   -F "file=@image.jpg" \
   -F "filename=my-image.jpg"
 
-# List media
-curl http://localhost:3000/api/v1/media-management/media/
+# List media - requires JWT token
+curl -H "Authorization: Bearer <your-jwt-token>" \
+  http://localhost:3000/api/v1/media-management/media/
 
-# Get media info
-curl http://localhost:3000/api/v1/media-management/media/{media-id}
+# Get media info - requires JWT token
+curl -H "Authorization: Bearer <your-jwt-token>" \
+  http://localhost:3000/api/v1/media-management/media/{media-id}
 
-# Delete media
-curl -X DELETE http://localhost:3000/api/v1/media-management/media/{media-id}
+# Delete media - requires JWT token
+curl -X DELETE \
+  -H "Authorization: Bearer <your-jwt-token>" \
+  http://localhost:3000/api/v1/media-management/media/{media-id}
 
-# Download media
-curl http://localhost:3000/api/v1/media-management/media/{media-id}/download \
+# Download media - requires JWT token
+curl -H "Authorization: Bearer <your-jwt-token>" \
+  http://localhost:3000/api/v1/media-management/media/{media-id}/download \
   -o downloaded-file.jpg
 ```
 
 ## 🔒 Security
 
+- **OAuth2 Authentication**: Full OAuth2 integration with JWT token validation and introspection
+- **Service-to-Service Auth**: OAuth2 Client Credentials Flow for microservice authentication
 - **Input Validation**: Comprehensive file type and content validation
 - **Path Security**: Content-addressable storage prevents directory traversal
 - **Content Verification**: SHA-256 checksums ensure file integrity

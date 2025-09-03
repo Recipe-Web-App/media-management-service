@@ -18,7 +18,51 @@ not yet fully implemented.
 
 ## Authentication
 
-Currently, the service runs without authentication enabled. All endpoints are publicly accessible for development purposes.
+The service uses **OAuth2 JWT authentication** for all media endpoints (health checks remain public).
+
+### Required Header
+
+All authenticated endpoints require the following header:
+
+```http
+Authorization: Bearer {jwt_token}
+```
+
+### JWT Token Format
+
+Tokens must be valid OAuth2 JWT tokens with the following claims structure:
+
+```json
+{
+  "iss": "oauth2-service-url", // Issuer
+  "aud": ["media-management-service"], // Audience
+  "sub": "user-id-12345", // Subject (User ID)
+  "client_id": "recipe-service-client", // OAuth2 Client ID
+  "scopes": ["media:read", "media:write"], // OAuth2 Scopes
+  "type": "user", // Token Type
+  "exp": 1234567890, // Expiration
+  "iat": 1234567800, // Issued At
+  "nbf": 1234567800, // Not Before
+  "jti": "token-unique-id" // JWT ID
+}
+```
+
+### Authentication Error Responses
+
+**401 Unauthorized:**
+
+```json
+{
+  "error": "Unauthorized",
+  "message": "Invalid or missing authentication token"
+}
+```
+
+### OAuth2 Configuration
+
+- **JWT Validation**: Supports offline validation (default) and online introspection
+- **Service-to-Service**: OAuth2 Client Credentials Flow for microservice auth
+- **Token Caching**: Performance optimization with configurable TTL
 
 ---
 

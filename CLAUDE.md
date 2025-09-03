@@ -144,6 +144,44 @@ The service provides a comprehensive readiness check to determine if the service
 - `cargo clippy --all-targets --all-features -- -D warnings` - Run linter with warnings as errors
 - `cargo check` - Quick compile check without building executable
 
+### OAuth2 Testing
+
+The service includes comprehensive OAuth2 integration tests. Key testing scenarios:
+
+**OAuth2 Integration Tests:**
+
+- `cargo test oauth2` - Run OAuth2-specific integration tests
+- `cargo test test_jwt_validation` - Test JWT token validation
+- `cargo test test_token_introspection` - Test OAuth2 token introspection
+- `cargo test test_client_credentials` - Test service-to-service authentication
+
+**Manual Testing with JWT Tokens:**
+
+```bash
+# Test without authentication (should return 401)
+curl http://localhost:3000/api/v1/media-management/media/
+
+# Test with valid JWT token
+curl -H "Authorization: Bearer <your-jwt-token>" \
+  http://localhost:3000/api/v1/media-management/media/
+
+# Test OAuth2 configuration
+curl http://localhost:3000/api/v1/media-management/health  # No auth required
+```
+
+**Environment Variables for Testing:**
+
+```bash
+# Disable OAuth2 for local testing (not recommended)
+OAUTH2_SERVICE_ENABLED=false
+
+# Use offline JWT validation for faster tests
+OAUTH2_INTROSPECTION_ENABLED=false
+
+# Configure test OAuth2 service URL
+OAUTH2_SERVICE_BASE_URL=http://localhost:8080/api/v1/auth
+```
+
 ### Code Coverage
 
 #### Primary Tool: cargo-llvm-cov (recommended)
@@ -404,6 +442,10 @@ curl "http://localhost:3000/api/v1/media-management/media/?cursor=eyJpZCI6MTAwfQ
 
 # Using the service URL in Kubernetes
 curl "http://media-management.local/api/v1/media-management/media/?limit=25"
+
+# With OAuth2 authentication (requires JWT token)
+curl -H "Authorization: Bearer <your-jwt-token>" \
+  "http://localhost:3000/api/v1/media-management/media/?limit=25"
 ```
 
 **Cursor Format:**

@@ -40,6 +40,7 @@ paths:
         - **degraded**: At least one dependency working (service partially functional)
         - **unhealthy**: All critical dependencies failing
       operationId: healthCheck
+      security: [] # Override global auth requirement - health checks are public
       responses:
         "200":
           description: Service is healthy or degraded (can still serve requests)
@@ -114,6 +115,7 @@ paths:
 
         Used by Kubernetes to control traffic routing to pods.
       operationId: readinessCheck
+      security: [] # Override global auth requirement - readiness checks are public
       responses:
         "200":
           description: Service is ready to accept traffic (all dependencies operational)
@@ -203,6 +205,15 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized - Invalid or missing JWT token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Unauthorized"
+                message: "Invalid or missing authentication token"
         "501":
           description: Not implemented (current response)
           content:
@@ -261,6 +272,15 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized - Invalid or missing JWT token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Unauthorized"
+                message: "Invalid or missing authentication token"
 
   /media/{id}:
     get:
@@ -285,6 +305,15 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MediaDto"
+        "401":
+          description: Unauthorized - Invalid or missing JWT token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Unauthorized"
+                message: "Invalid or missing authentication token"
         "404":
           description: Media not found (current response)
           content:
@@ -316,6 +345,15 @@ paths:
       responses:
         "204":
           description: Media file successfully deleted
+        "401":
+          description: Unauthorized - Invalid or missing JWT token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Unauthorized"
+                message: "Invalid or missing authentication token"
         "404":
           description: Media not found
           content:
@@ -385,6 +423,15 @@ paths:
               description: Size of the file in bytes
               schema:
                 type: integer
+        "401":
+          description: Unauthorized - Invalid or missing JWT token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Unauthorized"
+                message: "Invalid or missing authentication token"
         "404":
           description: Media not found
           content:
@@ -464,6 +511,15 @@ paths:
                   value:
                     error: "Bad Request"
                     message: "Content type format is invalid"
+        "401":
+          description: Unauthorized - Invalid or missing JWT token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Unauthorized"
+                message: "Invalid or missing authentication token"
 
   /media/upload/{token}:
     put:
@@ -649,6 +705,15 @@ paths:
                     processing_time_ms: 1200
                     uploaded_at: "2024-01-01T12:00:00Z"
                     completed_at: "2024-01-01T12:00:01Z"
+        "401":
+          description: Unauthorized - Invalid or missing JWT token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Unauthorized"
+                message: "Invalid or missing authentication token"
         "404":
           description: Media not found
           content:
@@ -1297,11 +1362,22 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: JWT token authentication (planned - currently disabled)
+      description: |-
+        OAuth2 JWT token authentication.
 
-# Security is currently disabled in development
-# security:
-#   - BearerAuth: []
+        **Required Header:** `Authorization: Bearer {jwt_token}`
+
+        **JWT Claims Format:**
+        - iss: Issuer (OAuth2 service)
+        - aud: Audience (service identifiers)
+        - sub: Subject (user ID)
+        - client_id: OAuth2 client identifier
+        - scopes: Array of OAuth2 scopes
+        - exp: Expiration timestamp
+
+# Global security requirement - all endpoints require authentication except health checks
+security:
+  - BearerAuth: []
 
 externalDocs:
   description: Media Management Service Documentation

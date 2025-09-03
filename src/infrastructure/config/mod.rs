@@ -121,6 +121,7 @@ pub enum RotationPolicy {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MiddlewareConfig {
     pub auth: AuthConfig,
+    pub oauth2: OAuth2Config,
     pub rate_limiting: RateLimitingConfig,
     pub security: SecurityConfig,
     pub metrics: MetricsConfig,
@@ -136,6 +137,23 @@ pub struct AuthConfig {
     pub jwt_expiry_hours: u64,
     pub require_auth_routes: Vec<String>,
     pub optional_auth_routes: Vec<String>,
+}
+
+/// `OAuth2` service integration configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OAuth2Config {
+    pub enabled: bool,
+    pub service_to_service_enabled: bool,
+    pub introspection_enabled: bool,
+    pub client_id: String,
+    pub client_secret: String,
+    pub service_base_url: String,
+    pub jwt_secret: String,
+    pub token_cache_ttl_seconds: u64,
+    pub client_credentials_cache_ttl_seconds: u64,
+    pub request_timeout_seconds: u64,
+    pub max_retries: u32,
+    pub retry_delay_ms: u64,
 }
 
 /// Rate limiting configuration
@@ -432,6 +450,67 @@ impl AppConfig {
                 .collect();
             if !routes.is_empty() {
                 builder = builder.set_override("middleware.auth.optional_auth_routes", routes)?;
+            }
+        }
+
+        // OAUTH2 MIDDLEWARE CONFIG //
+        if let Ok(val) = std::env::var("OAUTH2_SERVICE_ENABLED") {
+            if let Ok(parsed) = val.parse::<bool>() {
+                builder = builder.set_override("middleware.oauth2.enabled", parsed)?;
+            }
+        }
+        if let Ok(val) = std::env::var("OAUTH2_SERVICE_TO_SERVICE_ENABLED") {
+            if let Ok(parsed) = val.parse::<bool>() {
+                builder =
+                    builder.set_override("middleware.oauth2.service_to_service_enabled", parsed)?;
+            }
+        }
+        if let Ok(val) = std::env::var("OAUTH2_INTROSPECTION_ENABLED") {
+            if let Ok(parsed) = val.parse::<bool>() {
+                builder =
+                    builder.set_override("middleware.oauth2.introspection_enabled", parsed)?;
+            }
+        }
+        if let Ok(val) = std::env::var("OAUTH2_CLIENT_ID") {
+            builder = builder.set_override("middleware.oauth2.client_id", val)?;
+        }
+        if let Ok(val) = std::env::var("OAUTH2_CLIENT_SECRET") {
+            builder = builder.set_override("middleware.oauth2.client_secret", val)?;
+        }
+        if let Ok(val) = std::env::var("OAUTH2_SERVICE_BASE_URL") {
+            builder = builder.set_override("middleware.oauth2.service_base_url", val)?;
+        }
+        if let Ok(val) = std::env::var("JWT_SECRET") {
+            builder = builder.set_override("middleware.oauth2.jwt_secret", val)?;
+        }
+        if let Ok(val) = std::env::var("OAUTH2_TOKEN_CACHE_TTL_SECONDS") {
+            if let Ok(parsed) = val.parse::<u64>() {
+                builder =
+                    builder.set_override("middleware.oauth2.token_cache_ttl_seconds", parsed)?;
+            }
+        }
+        if let Ok(val) = std::env::var("OAUTH2_CLIENT_CREDENTIALS_CACHE_TTL_SECONDS") {
+            if let Ok(parsed) = val.parse::<u64>() {
+                builder = builder.set_override(
+                    "middleware.oauth2.client_credentials_cache_ttl_seconds",
+                    parsed,
+                )?;
+            }
+        }
+        if let Ok(val) = std::env::var("OAUTH2_REQUEST_TIMEOUT_SECONDS") {
+            if let Ok(parsed) = val.parse::<u64>() {
+                builder =
+                    builder.set_override("middleware.oauth2.request_timeout_seconds", parsed)?;
+            }
+        }
+        if let Ok(val) = std::env::var("OAUTH2_MAX_RETRIES") {
+            if let Ok(parsed) = val.parse::<u32>() {
+                builder = builder.set_override("middleware.oauth2.max_retries", parsed)?;
+            }
+        }
+        if let Ok(val) = std::env::var("OAUTH2_RETRY_DELAY_MS") {
+            if let Ok(parsed) = val.parse::<u64>() {
+                builder = builder.set_override("middleware.oauth2.retry_delay_ms", parsed)?;
             }
         }
 
@@ -825,6 +904,18 @@ impl AppConfig {
             .set_default("middleware.auth.jwt_expiry_hours", 24)?
             .set_default("middleware.auth.require_auth_routes", Vec::<String>::new())?
             .set_default("middleware.auth.optional_auth_routes", Vec::<String>::new())?
+            .set_default("middleware.oauth2.enabled", false)?
+            .set_default("middleware.oauth2.service_to_service_enabled", false)?
+            .set_default("middleware.oauth2.introspection_enabled", false)?
+            .set_default("middleware.oauth2.client_id", "")?
+            .set_default("middleware.oauth2.client_secret", "")?
+            .set_default("middleware.oauth2.service_base_url", "http://localhost:8080/api/v1/auth")?
+            .set_default("middleware.oauth2.jwt_secret", "")?
+            .set_default("middleware.oauth2.token_cache_ttl_seconds", 300)?
+            .set_default("middleware.oauth2.client_credentials_cache_ttl_seconds", 1800)?
+            .set_default("middleware.oauth2.request_timeout_seconds", 10)?
+            .set_default("middleware.oauth2.max_retries", 3)?
+            .set_default("middleware.oauth2.retry_delay_ms", 1000)?
             .set_default("middleware.rate_limiting.enabled", true)?
             .set_default("middleware.rate_limiting.default_requests_per_minute", 100)?
             .set_default("middleware.rate_limiting.default_burst_capacity", 10)?
@@ -976,6 +1067,20 @@ mod tests {
                 jwt_expiry_hours: 24,
                 require_auth_routes: vec!["/api/v1/media-management/media".to_string()],
                 optional_auth_routes: vec![],
+            },
+            oauth2: OAuth2Config {
+                enabled: false,
+                service_to_service_enabled: false,
+                introspection_enabled: false,
+                client_id: "test-client-id".to_string(),
+                client_secret: "test-client-secret".to_string(),
+                service_base_url: "http://localhost:8080/api/v1/auth".to_string(),
+                jwt_secret: "test-oauth2-jwt-secret".to_string(),
+                token_cache_ttl_seconds: 300,
+                client_credentials_cache_ttl_seconds: 1800,
+                request_timeout_seconds: 10,
+                max_retries: 3,
+                retry_delay_ms: 1000,
             },
             rate_limiting: RateLimitingConfig {
                 enabled: true,
