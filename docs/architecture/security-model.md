@@ -141,24 +141,43 @@ impl SecurePathBuilder {
 
 ## Authentication and Authorization
 
-### Authentication Integration
+### OAuth2 Integration
+
+The service implements comprehensive OAuth2 authentication with support for both user authentication and
+service-to-service communication:
 
 ```rust
-pub struct AuthenticationMiddleware {
-    jwt_decoder: JwtDecoder,
-    required_scopes: Vec<Scope>,
+pub struct OAuth2AuthMiddleware {
+    oauth2_client: Arc<OAuth2Client>,
+    jwt_service: Arc<JwtService>,
+    config: OAuth2Config,
 }
 
 #[async_trait]
-impl<S> Middleware<S> for AuthenticationMiddleware {
+impl<S> Middleware<S> for OAuth2AuthMiddleware {
     async fn call(&self, req: Request<Body>, next: Next<S>) -> Result<Response<Body>, Error> {
         // Extract JWT from Authorization header
         let token = extract_bearer_token(&req)
             .ok_or(AuthError::MissingToken)?;
 
-        // Validate and decode JWT
-        let claims = self.jwt_decoder.decode(&token)
-            .map_err(|_| AuthError::InvalidToken)?;
+        // Choose validation strategy based on configuration
+        let claims = if self.config.introspection_enabled {
+            // Online validation via OAuth2 service
+            let token_info = self.oauth2_client
+                .introspect_token(&token)
+                .await
+                .map_err(|_| AuthError::InvalidToken)?;
+
+            if !token_info.active {
+                return Err(AuthError::InvalidToken);
+            }
+
+            Claims::from_introspection(&token_info)
+        } else {
+            // Offline JWT validation
+            self.jwt_service.validate_token(&token)
+                .map_err(|_| AuthError::InvalidToken)?
+        };
 
         // Check required scopes
         if !self.has_required_scopes(&claims.scopes) {
@@ -170,6 +189,79 @@ impl<S> Middleware<S> for AuthenticationMiddleware {
         req.extensions_mut().insert(UserContext::from(claims));
 
         next.run(req).await
+    }
+}
+```
+
+### JWT Claims Structure
+
+OAuth2 JWT tokens use a standardized claims format:
+
+```rust
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Claims {
+    pub iss: String,              // Issuer (OAuth2 service)
+    pub aud: Vec<String>,         // Audience (service identifiers)
+    pub sub: String,              // Subject (user ID)
+    pub client_id: String,        // OAuth2 client ID
+    pub user_id: Option<String>,  // User ID (for user tokens)
+    pub scopes: Vec<String>,      // OAuth2 scopes
+    #[serde(rename = "type")]
+    pub token_type: String,       // Token type (user/client_credentials)
+    pub exp: usize,               // Expiration time
+    pub iat: usize,               // Issued at
+    pub nbf: usize,               // Not before
+    pub jti: String,              // JWT ID
+}
+```
+
+### Authentication Strategies
+
+#### 1. JWT Validation (Offline)
+
+Fast, local validation using shared secret:
+
+- **Advantages**: Low latency, no network dependency
+- **Use Case**: High-performance scenarios, internal services
+- **Configuration**: `OAUTH2_INTROSPECTION_ENABLED=false`
+
+#### 2. Token Introspection (Online)
+
+Authoritative validation via OAuth2 service API:
+
+- **Advantages**: Real-time token status, immediate revocation support
+- **Use Case**: Security-critical operations, token revocation scenarios
+- **Configuration**: `OAUTH2_INTROSPECTION_ENABLED=true`
+
+### Service-to-Service Authentication
+
+OAuth2 Client Credentials Flow for microservice authentication:
+
+```rust
+pub struct ServiceAuthenticator {
+    oauth2_client: Arc<OAuth2Client>,
+    required_scopes: Vec<String>,
+}
+
+impl ServiceAuthenticator {
+    pub async fn get_service_token(&self) -> Result<String, AuthError> {
+        let token = self.oauth2_client
+            .get_client_credentials_token(&self.required_scopes)
+            .await?;
+
+        Ok(token.access_token)
+    }
+
+    pub async fn authenticated_request(&self, url: &str) -> Result<Response, Error> {
+        let token = self.get_service_token().await?;
+
+        let response = reqwest::Client::new()
+            .get(url)
+            .header("Authorization", format!("Bearer {}", token))
+            .send()
+            .await?;
+
+        Ok(response)
     }
 }
 ```
