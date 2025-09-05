@@ -11,11 +11,6 @@ The Media Management Service is a production-ready microservice for handling med
 retrieval within the Recipe Web Application ecosystem. Built with Rust using Axum framework and following
 Clean/Hexagonal Architecture principles.
 
-## Current Implementation Status
-
-⚠️ **Note**: This service is currently in development. Most media endpoints return placeholder responses and are
-not yet fully implemented.
-
 ## Authentication
 
 The service uses **OAuth2 JWT authentication** for all media endpoints (health checks remain public).
@@ -196,6 +191,96 @@ Kubernetes readiness probe endpoint with binary ready/not-ready status.
 
 ---
 
+## Monitoring Endpoints
+
+### Metrics
+
+**GET** `/metrics`
+
+Provides Prometheus-compatible metrics for monitoring and observability.
+
+**Authentication**: None (monitoring endpoints are typically unauthenticated)
+
+**Response Format**: Prometheus text format
+
+**Metrics Categories**:
+
+- **HTTP Request Metrics**:
+  - `http_requests_total` - Total number of HTTP requests by method, route, and status
+  - `http_request_duration_seconds` - Request duration histogram
+  - `http_request_size_bytes` - Request size counter
+  - `http_response_size_bytes` - Response size counter
+
+- **Business Metrics**:
+  - `media_uploads_total` - Total media file uploads
+  - `media_processing_duration_seconds` - Media processing time histogram
+  - `media_storage_bytes_total` - Total storage space used
+
+- **System Metrics**:
+  - `http_errors_total` - HTTP error counter by status code
+  - `auth_attempts_total` - Authentication attempts by outcome
+  - `rate_limit_exceeded_total` - Rate limiting violations
+
+- **Error Metrics**:
+  - Error rates by endpoint and type
+  - Failed request classifications
+
+**Configuration**: Controlled by environment variables:
+
+- `MEDIA_SERVICE_MIDDLEWARE_METRICS_ENABLED` - Enable/disable metrics collection
+- `MEDIA_SERVICE_MIDDLEWARE_METRICS_ENDPOINT_ENABLED` - Enable/disable `/metrics` endpoint
+- `MEDIA_SERVICE_MIDDLEWARE_METRICS_*` - Fine-grained control over metric types
+
+**Example Response**:
+
+```prometheus
+# HELP http_requests_total Total number of HTTP requests
+# TYPE http_requests_total counter
+http_requests_total{method="GET",route="/health",status="200"} 42
+
+# HELP http_request_duration_seconds HTTP request duration in seconds
+# TYPE http_request_duration_seconds histogram
+http_request_duration_seconds_bucket{method="GET",route="/health",status="200",le="0.1"} 40
+http_request_duration_seconds_bucket{method="GET",route="/health",status="200",le="0.5"} 42
+
+# HELP media_uploads_total Total number of media uploads
+# TYPE media_uploads_total counter
+media_uploads_total{status="success"} 15
+media_uploads_total{status="failed"} 2
+```
+
+**Status Codes**:
+
+- `200 OK` - Metrics data returned successfully
+- `404 Not Found` - Metrics endpoint is disabled in configuration
+
+**Example Usage**:
+
+```bash
+# Get metrics data
+curl http://localhost:3000/metrics
+
+# Using Kubernetes service URL
+curl http://media-management.local/metrics
+
+# Prometheus scrape configuration
+scrape_configs:
+  - job_name: 'media-management-service'
+    static_configs:
+      - targets: ['media-management.local:80']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+```
+
+**Integration with Monitoring**:
+
+- **Prometheus**: Direct scraping support
+- **Grafana**: Pre-built dashboard compatible
+- **Kubernetes**: Works with Prometheus Operator and ServiceMonitor
+- **Alerting**: Metric thresholds for operational alerts
+
+---
+
 ## Media Endpoints
 
 ### Upload Media
@@ -203,8 +288,6 @@ Kubernetes readiness probe endpoint with binary ready/not-ready status.
 **POST** `/media/`
 
 Upload a new media file to the system with automatic content-addressable storage and deduplication.
-
-**Status**: ✅ Implemented
 
 **Request Headers:**
 
@@ -229,6 +312,7 @@ Multipart form data with the following fields:
 
 ```bash
 curl -X POST "http://localhost:3000/api/v1/media-management/media/" \
+  -H "Authorization: Bearer <your-jwt-token>" \
   -F "file=@example.jpg;type=image/jpeg"
 ```
 
@@ -318,7 +402,213 @@ Files are stored using content-addressable paths:
 3. **Future**: Processing complete → Status: `"Complete"`
 4. **Future**: Processing failed → Status: `"Failed"`
 
-_Note: Currently all uploads immediately receive `"Pending"` status. Async processing pipeline is planned for future releases._
+---
+
+## Presigned Upload Endpoints
+
+### Initiate Presigned Upload Session
+
+**POST** `/media/upload-request`
+
+Initiates a presigned upload session for secure, UI-friendly file uploads with progress tracking.
+
+**Request Body:**
+
+```json
+{
+  "filename": "example.jpg",
+  "content_type": "image/jpeg",
+  "file_size": 1048576
+}
+```
+
+**Request Fields:**
+
+- `filename` (string, required): Original filename (validated for security)
+- `content_type` (string, required): MIME content type (must contain slash)
+- `file_size` (integer, required): File size in bytes (max 50MB default)
+
+**Successful Response:**
+
+```json
+{
+  "media_id": 123,
+  "upload_url": "http://localhost:3000/api/v1/media-management/media/upload/upload_abc123?signature=def456&expires=1704067200&size=1048576&type=image%2Fjpeg",
+  "upload_token": "upload_abc123",
+  "expires_at": "2024-01-01T12:00:00Z",
+  "status": "Pending"
+}
+```
+
+**Security Features:**
+
+- **HMAC-SHA256 signature** for URL tampering protection
+- **Expiration timestamps** (15-minute default)
+- **File size validation** and limits
+- **Content type validation**
+- **Dangerous file extension filtering**
+
+**Error Responses:**
+
+**400 Bad Request - File too large:**
+
+```json
+{
+  "error": "Bad Request",
+  "message": "File size 52428800 bytes exceeds maximum allowed size of 50000000 bytes"
+}
+```
+
+**400 Bad Request - Dangerous extension:**
+
+```json
+{
+  "error": "Bad Request",
+  "message": "File type not allowed: malware.exe"
+}
+```
+
+**Status Codes:**
+
+- `200 OK` - Upload session created successfully
+- `400 Bad Request` - Invalid request (file too large, dangerous extension, invalid content type)
+
+**Example Usage:**
+
+```bash
+curl -X POST "http://localhost:3000/api/v1/media-management/media/upload-request" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <your-jwt-token>" \
+  -d '{
+    "filename": "photo.jpg",
+    "content_type": "image/jpeg",
+    "file_size": 2048576
+  }'
+```
+
+---
+
+### Upload File to Presigned URL
+
+**PUT** `/media/upload/{token}`
+
+Uploads the actual file content using the presigned URL from upload initiation.
+
+**Path Parameters:**
+
+- `token` (string, required): Upload token from initiation response
+
+**Query Parameters (automatically included in presigned URL):**
+
+- `signature` (string, required): HMAC signature for security validation
+- `expires` (integer, required): Unix timestamp for URL expiration
+- `size` (integer, required): Expected file size in bytes
+- `type` (string, required): URL-encoded content type
+
+**Request Body:** Raw file data (binary)
+
+**Successful Response:**
+
+```json
+{
+  "media_id": 123,
+  "content_hash": "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+  "processing_status": "Processing",
+  "upload_url": null
+}
+```
+
+**Error Responses:**
+
+**400 Bad Request - Expired URL:**
+
+```json
+{
+  "error": "Bad Request",
+  "message": "Upload URL has expired at 2024-01-01T11:00:00Z"
+}
+```
+
+**400 Bad Request - Size mismatch:**
+
+```json
+{
+  "error": "Bad Request",
+  "message": "File size mismatch: expected 1048576 bytes, got 1024000 bytes"
+}
+```
+
+**401 Unauthorized - Invalid signature:**
+
+```json
+{
+  "error": "Unauthorized",
+  "message": "Invalid upload signature"
+}
+```
+
+**Status Codes:**
+
+- `200 OK` - File uploaded and processing started
+- `400 Bad Request` - Invalid signature, expired URL, or file size mismatch
+- `401 Unauthorized` - Invalid or expired signature
+
+**Example Usage:**
+
+```bash
+# Use the upload_url from the initiation response
+curl -X PUT \
+  "http://localhost:3000/api/v1/media-management/media/upload/upload_abc123?\
+signature=def456&expires=1704067200&size=1048576&type=image%2Fjpeg" \
+  --data-binary @photo.jpg \
+  -H "Content-Type: image/jpeg"
+```
+
+---
+
+### Get Upload/Processing Status
+
+**GET** `/media/{id}/status`
+
+Retrieves the current status of a media upload, including processing progress and any error information.
+
+**Path Parameters:**
+
+- `id` (integer, required): Media ID from upload initiation
+
+**Successful Response:**
+
+```json
+{
+  "media_id": 123,
+  "status": "Complete",
+  "progress": 100,
+  "error_message": null,
+  "download_url": "http://localhost:3000/api/v1/media-management/media/123/download",
+  "processing_time_ms": 2500,
+  "uploaded_at": "2024-01-01T12:00:00Z",
+  "completed_at": "2024-01-01T12:00:02Z"
+}
+```
+
+**Status Values:**
+
+- `"Pending"` - Upload session created, file not yet uploaded
+- `"Processing"` - File uploaded, currently being processed
+- `"Complete"` - Processing finished, file ready for use
+- `"Failed"` - Processing failed, see error_message
+
+**Status Codes:**
+
+- `200 OK` - Status retrieved successfully
+- `404 Not Found` - Media not found
+
+**Example Usage:**
+
+```bash
+curl -H "Authorization: Bearer <your-jwt-token>" \
+  "http://localhost:3000/api/v1/media-management/media/123/status"
+```
 
 ---
 
@@ -326,55 +616,84 @@ _Note: Currently all uploads immediately receive `"Pending"` status. Async proce
 
 **GET** `/media/`
 
-Retrieve a list of media files with optional filtering and pagination.
-
-**Status**: 🚧 Partially Implemented (returns empty list)
+Retrieve a list of media files with efficient cursor-based pagination and optional filtering.
 
 **Query Parameters:**
 
-- `limit` (integer, optional) - Maximum number of items to return
-- `offset` (integer, optional) - Number of items to skip for pagination
+- `cursor` (string, optional) - Base64-encoded cursor for pagination navigation
+- `limit` (integer, optional) - Maximum number of items to return (default: 50, max: 100, min: 1)
 - `status` (string, optional) - Filter by processing status
-  - Valid values: `Pending`, `Processing`, `Complete`, `{"Failed": "error message"}`
+  - Valid values: `Pending`, `Processing`, `Complete`, `Failed`
 
-**Example Request:**
+**Example Requests:**
 
-```http
-GET /media/?limit=10&offset=0&status=Complete
+```bash
+# Get first page (default 50 items)
+curl -H "Authorization: Bearer <your-jwt-token>" \
+  "http://localhost:3000/api/v1/media-management/media/"
+
+# Get first page with custom limit
+curl -H "Authorization: Bearer <your-jwt-token>" \
+  "http://localhost:3000/api/v1/media-management/media/?limit=25"
+
+# Get next page using cursor from previous response
+curl -H "Authorization: Bearer <your-jwt-token>" \
+  "http://localhost:3000/api/v1/media-management/media/?cursor=eyJpZCI6MTI0fQ=="
+
+# Filter by processing status
+curl -H "Authorization: Bearer <your-jwt-token>" \
+  "http://localhost:3000/api/v1/media-management/media/?status=Complete&limit=10"
+
+# Combined filters
+curl -H "Authorization: Bearer <your-jwt-token>" \
+  "http://localhost:3000/api/v1/media-management/media/?cursor=eyJpZCI6MTAwfQ==&limit=20&status=Complete"
 ```
 
-**Response:**
+**Response Format:**
 
 ```json
-[]
+{
+  "data": [
+    {
+      "id": 123,
+      "content_hash": "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+      "original_filename": "example-image.jpg",
+      "media_type": "image/jpeg",
+      "media_path": "ab/cd/ef/abcdef123456",
+      "file_size": 1048576,
+      "processing_status": "Complete",
+      "uploaded_at": "2025-01-15T10:30:00Z",
+      "updated_at": "2025-01-15T10:30:00Z"
+    }
+  ],
+  "pagination": {
+    "next_cursor": "eyJpZCI6MTI0fQ==",
+    "prev_cursor": null,
+    "page_size": 1,
+    "has_next": true,
+    "has_prev": false
+  }
+}
 ```
+
+**Pagination Fields:**
+
+- `next_cursor`: Base64-encoded cursor for next page (null if last page)
+- `prev_cursor`: Reserved for future backward pagination (currently null)
+- `page_size`: Number of items in current page
+- `has_next`: Boolean indicating if more items available
+- `has_prev`: Boolean indicating if previous items exist (based on cursor presence)
+
+**Cursor-Based Pagination Benefits:**
+
+- More efficient than offset-based pagination for large datasets
+- Consistent results even when data is modified during pagination
+- Scales better with database indexing
 
 **Status Codes:**
 
-- `200 OK` - Returns empty array (current implementation)
-
-**Planned Response Format** (when implemented):
-
-```json
-[
-  {
-    "id": 123,
-    "content_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "original_filename": "example.jpg",
-    "media_type": {
-      "Image": {
-        "format": "Jpeg",
-        "width": 1920,
-        "height": 1080
-      }
-    },
-    "file_size": 1048576,
-    "processing_status": "Complete",
-    "uploaded_at": "2024-08-24T10:30:00Z",
-    "updated_at": "2024-08-24T10:35:00Z"
-  }
-]
-```
+- `200 OK` - Successfully retrieved media list
+- `400 Bad Request` - Invalid query parameters (e.g., invalid cursor format)
 
 ---
 
@@ -384,52 +703,54 @@ GET /media/?limit=10&offset=0&status=Complete
 
 Retrieve detailed information about a specific media file.
 
-**Status**: 🚧 Not Implemented
-
 **Path Parameters:**
 
 - `id` (integer) - The unique identifier of the media file
 
 **Example Request:**
 
-```http
-GET /media/123
+```bash
+curl -H "Authorization: Bearer <your-jwt-token>" \
+  "http://localhost:3000/api/v1/media-management/media/123"
 ```
 
-**Response:**
-
-```json
-{
-  "error": "Not Found",
-  "message": "Media not found"
-}
-```
-
-**Status Codes:**
-
-- `404 Not Found` - Media not found (current implementation)
-
-**Planned Response Format** (when implemented):
+**Successful Response:**
 
 ```json
 {
   "id": 123,
-  "content_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "content_hash": "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
   "original_filename": "example.jpg",
-  "media_type": {
-    "Video": {
-      "format": "Mp4",
-      "width": 1280,
-      "height": 720,
-      "duration_seconds": 120
-    }
-  },
-  "file_size": 5242880,
+  "media_type": "image/jpeg",
+  "media_path": "ab/cd/ef/abcdef123456",
+  "file_size": 1048576,
   "processing_status": "Complete",
-  "uploaded_at": "2024-08-24T10:30:00Z",
-  "updated_at": "2024-08-24T10:35:00Z"
+  "uploaded_at": "2025-01-15T10:30:00Z",
+  "updated_at": "2025-01-15T10:30:00Z"
 }
 ```
+
+**Error Response:**
+
+```json
+{
+  "error": "Not Found",
+  "message": "Media with ID 123"
+}
+```
+
+**Processing Status Values:**
+
+- `"Pending"` - Media uploaded but not yet processed
+- `"Processing"` - Media currently being processed
+- `"Complete"` - Media successfully processed and available
+- `"Failed"` - Processing failed
+
+**Status Codes:**
+
+- `200 OK` - Successfully retrieved media metadata
+- `400 Bad Request` - Invalid media ID format
+- `404 Not Found` - Media not found
 
 ---
 
@@ -439,8 +760,6 @@ GET /media/123
 
 Permanently delete a media file and its associated database record. This operation removes both the file from storage
 and the metadata from the database.
-
-**Status**: ✅ Implemented
 
 **Path Parameters:**
 
@@ -486,7 +805,7 @@ HTTP/1.1 204 No Content
 
 **Security Considerations:**
 
-- Users can only delete media files they own (when authentication is implemented)
+- Users can only delete media files they own
 - Content-addressable storage prevents path traversal attacks
 - Audit logging records all deletion operations
 - Operation continues even if storage deletion fails (handles pre-deleted files)
@@ -502,13 +821,18 @@ HTTP/1.1 204 No Content
 
 ```bash
 # Delete media with ID 123
-curl -X DELETE "http://localhost:3000/api/v1/media-management/media/123"
+curl -X DELETE \
+  -H "Authorization: Bearer <your-jwt-token>" \
+  "http://localhost:3000/api/v1/media-management/media/123"
 
 # Using Kubernetes service URL
-curl -X DELETE "http://media-management.local/api/v1/media-management/media/123"
+curl -X DELETE \
+  -H "Authorization: Bearer <your-jwt-token>" \
+  "http://media-management.local/api/v1/media-management/media/123"
 
 # Verify deletion was successful (should return 404)
-curl "http://localhost:3000/api/v1/media-management/media/123"
+curl -H "Authorization: Bearer <your-jwt-token>" \
+  "http://localhost:3000/api/v1/media-management/media/123"
 ```
 
 ---
@@ -519,35 +843,64 @@ curl "http://localhost:3000/api/v1/media-management/media/123"
 
 Download the actual media file binary data.
 
-**Status**: 🚧 Not Implemented
-
 **Path Parameters:**
 
 - `id` (integer) - The unique identifier of the media file
 
 **Example Request:**
 
-```http
+```bash
 GET /media/123/download
 ```
 
-**Response:**
+**Successful Response:**
+
+- **Content-Type**: Based on media type (e.g., `image/jpeg`, `video/mp4`)
+- **Content-Length**: Size of the file in bytes
+- **Content-Disposition**: `attachment; filename="{original_filename}"`
+- **Cache-Control**: `private, max-age=3600` (cached for 1 hour)
+- **Body**: Binary file data
+
+**Error Responses:**
+
+**Media Not Found:**
 
 ```json
 {
-  "error": "Not Implemented",
-  "message": "Media download functionality is not yet implemented"
+  "error": "Not Found",
+  "message": "Media with ID 123"
+}
+```
+
+**Internal Server Error:**
+
+```json
+{
+  "error": "Internal Server Error",
+  "message": "Failed to retrieve media file"
 }
 ```
 
 **Status Codes:**
 
-- `501 Not Implemented` - Endpoint not yet implemented
+- `200 OK` - File downloaded successfully
+- `400 Bad Request` - Invalid media ID format
+- `404 Not Found` - Media not found
+- `500 Internal Server Error` - Storage or database error
 
-**Planned Response** (when implemented):
+**Example Usage:**
 
-- Content-Type: Based on media type (e.g., `image/jpeg`, `video/mp4`)
-- Body: Binary file data
+```bash
+# Download media file
+curl -H "Authorization: Bearer <your-jwt-token>" \
+  -o downloaded_file.jpg \
+  "http://localhost:3000/api/v1/media-management/media/123/download"
+
+# Using Kubernetes service URL
+curl -H "Authorization: Bearer <your-jwt-token>" \
+  -o downloaded_file.jpg \
+  "http://media-management.local/api/v1/media-management/media/123/download"
+```
 
 ---
 
@@ -556,8 +909,6 @@ GET /media/123/download
 **GET** `/media/recipe/{recipe_id}`
 
 Retrieve media IDs associated with a specific recipe.
-
-**Status**: ✅ Implemented
 
 **Path Parameters:**
 
@@ -588,8 +939,6 @@ GET /media/recipe/123
 **GET** `/media/recipe/{recipe_id}/ingredient/{ingredient_id}`
 
 Retrieve media IDs associated with a specific ingredient in a recipe.
-
-**Status**: ✅ Implemented
 
 **Path Parameters:**
 
@@ -622,8 +971,6 @@ GET /media/recipe/123/ingredient/456
 
 Retrieve media IDs associated with a specific step in a recipe.
 
-**Status**: ✅ Implemented
-
 **Path Parameters:**
 
 - `recipe_id` (integer) - The unique identifier of the recipe
@@ -651,56 +998,15 @@ GET /media/recipe/123/step/789
 
 ## Data Models
 
-### MediaType
-
-Media type information with format-specific metadata:
-
-**Image:**
-
-```json
-{
-  "Image": {
-    "format": "Jpeg" | "Png" | "WebP" | "Avif" | "Gif",
-    "width": 1920,
-    "height": 1080
-  }
-}
-```
-
-**Video:**
-
-```json
-{
-  "Video": {
-    "format": "Mp4" | "Webm" | "Mov" | "Avi",
-    "width": 1280,
-    "height": 720,
-    "duration_seconds": 120
-  }
-}
-```
-
-**Audio:**
-
-```json
-{
-  "Audio": {
-    "format": "Mp3" | "Wav" | "Flac" | "Ogg",
-    "duration_seconds": 240,
-    "bitrate": 128000
-  }
-}
-```
-
 ### ProcessingStatus
 
 Current status of media processing:
 
 ```json
-"Pending"           // Awaiting processing
-"Processing"        // Currently being processed
-"Complete"          // Ready for use
-{"Failed": "error"} // Processing failed with error message
+"Pending"     // Awaiting processing
+"Processing"  // Currently being processed
+"Complete"    // Ready for use
+"Failed"      // Processing failed
 ```
 
 ---
@@ -718,7 +1024,6 @@ All endpoints follow a consistent error response format:
 
 ### Standard Error Types
 
-- `Not Implemented` - Feature not yet available (501)
 - `Not Found` - Requested resource does not exist (404)
 - `Bad Request` - Invalid request parameters (400)
 - `Internal Server Error` - Unexpected server error (500)
@@ -736,36 +1041,17 @@ All endpoints follow a consistent error response format:
 
 ---
 
-## Development Status
+## Features
 
-### ✅ Completed
+The media management service provides comprehensive media handling capabilities:
 
-- Project structure and architecture
-- HTTP server setup with middleware
-- Health and readiness endpoints
-- Data models and DTOs
-- Basic routing structure
-- Comprehensive test coverage
-- Recipe-related media query endpoints
-  - Get media IDs by recipe
-  - Get media IDs by recipe ingredient
-  - Get media IDs by recipe step
-
-### 🚧 In Progress
-
-- Media upload handling
-- File processing pipeline
-- Database integration
-- Storage backend implementation
-
-### 📋 Planned
-
-- Authentication and authorization
-- Rate limiting
-- Metrics and monitoring
-- Image/video processing
-- Multiple storage backends (S3, etc.)
-- Content delivery optimization
+- **Media Upload**: Direct upload and presigned upload flows with multipart support
+- **Media Management**: List, retrieve, and delete media with cursor-based pagination
+- **Content Delivery**: Download media files with proper content-type handling
+- **Recipe Integration**: Query media associated with recipes, ingredients, and steps
+- **Content Deduplication**: Hash-based storage prevents duplicate files
+- **Authentication**: OAuth2 JWT-based access control
+- **Monitoring**: Health checks, readiness probes, and Prometheus metrics
 
 ---
 
