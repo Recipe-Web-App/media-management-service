@@ -8,7 +8,6 @@ info:
     Handles file uploads, processing, storage, and retrieval with a focus on security,
     performance, and scalability. Built with Rust using Clean/Hexagonal Architecture.
 
-    **Current Status**: Development phase - most media endpoints return placeholder responses.
   version: 0.1.0
   contact:
     name: Recipe Web App Team
@@ -24,6 +23,8 @@ servers:
 tags:
   - name: health
     description: Health and readiness checks
+  - name: monitoring
+    description: Metrics and monitoring endpoints
   - name: media
     description: Media file operations
 
@@ -158,14 +159,56 @@ paths:
                     response_time_ms: 3
                   overall: "not_ready"
 
+  /metrics:
+    get:
+      tags: [monitoring]
+      summary: Get Prometheus metrics
+      description: |
+        Provides Prometheus-compatible metrics for monitoring and observability.
+
+        Returns metrics in Prometheus text format including HTTP request metrics,
+        business metrics, system metrics, and error metrics.
+      operationId: getMetrics
+      responses:
+        "200":
+          description: Metrics data in Prometheus format
+          content:
+            text/plain; version=0.0.4; charset=utf-8:
+              schema:
+                type: string
+                description: Prometheus metrics in text format
+                example: |
+                  # HELP http_requests_total Total number of HTTP requests
+                  # TYPE http_requests_total counter
+                  http_requests_total{method="GET",route="/health",status="200"} 42
+
+                  # HELP http_request_duration_seconds HTTP request duration in seconds
+                  # TYPE http_request_duration_seconds histogram
+                  http_request_duration_seconds_bucket{method="GET",route="/health",status="200",le="0.1"} 40
+                  http_request_duration_seconds_bucket{method="GET",route="/health",status="200",le="0.5"} 42
+                  http_request_duration_seconds_sum{method="GET",route="/health",status="200"} 1.23
+                  http_request_duration_seconds_count{method="GET",route="/health",status="200"} 42
+
+                  # HELP media_uploads_total Total number of media uploads
+                  # TYPE media_uploads_total counter
+                  media_uploads_total{status="success"} 15
+                  media_uploads_total{status="failed"} 2
+        "404":
+          description: Metrics endpoint is disabled in configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Not Found"
+                message: "Endpoint not found"
+
   /media:
     post:
       tags: [media]
       summary: Upload media file
       description: |
-        Upload a new media file to the system.
-
-        **Status**: 🚧 Not Implemented - Returns 501 Not Implemented
+        Upload a new media file to the system with automatic content-addressable storage and deduplication.
       operationId: uploadMedia
       requestBody:
         description: Media file upload request
@@ -187,12 +230,17 @@ paths:
                 - file
                 - filename
       responses:
-        "201":
-          description: Media uploaded successfully (planned)
+        "200":
+          description: Media uploaded successfully
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/UploadMediaResponse"
+              example:
+                media_id: 123
+                content_hash: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+                processing_status: "Pending"
+                upload_url: null
         "400":
           description: Bad request - invalid file or parameters
           content:
@@ -214,58 +262,61 @@ paths:
               example:
                 error: "Unauthorized"
                 message: "Invalid or missing authentication token"
-        "501":
-          description: Not implemented (current response)
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                error: "Not Implemented"
-                message: "Media upload functionality is not yet implemented"
 
     get:
       tags: [media]
       summary: List media files
       description: |
-        Retrieve a list of media files with optional filtering and pagination.
-
-        **Status**: 🚧 Partially Implemented - Returns empty array
+        Retrieve a list of media files with efficient cursor-based pagination and optional filtering.
       operationId: listMedia
       parameters:
+        - name: cursor
+          in: query
+          description: Base64-encoded cursor for pagination navigation
+          required: false
+          schema:
+            type: string
+            example: "eyJpZCI6MTI0fQ=="
         - name: limit
           in: query
-          description: Maximum number of items to return
+          description: Maximum number of items to return (default 50, max 100, min 1)
           required: false
           schema:
             type: integer
             minimum: 1
-            maximum: 1000
+            maximum: 100
             default: 50
-        - name: offset
-          in: query
-          description: Number of items to skip for pagination
-          required: false
-          schema:
-            type: integer
-            minimum: 0
-            default: 0
         - name: status
           in: query
           description: Filter by processing status
           required: false
           schema:
-            $ref: "#/components/schemas/ProcessingStatus"
+            type: string
+            enum: [Pending, Processing, Complete, Failed]
       responses:
         "200":
-          description: List of media files
+          description: Paginated list of media files
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/MediaDto"
-              example: []
+                $ref: "#/components/schemas/PaginatedMediaResponse"
+              example:
+                data:
+                  - id: 123
+                    content_hash: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+                    original_filename: "example-image.jpg"
+                    media_type: "image/jpeg"
+                    media_path: "ab/cd/ef/abcdef123456"
+                    file_size: 1048576
+                    processing_status: "Complete"
+                    uploaded_at: "2025-01-15T10:30:00Z"
+                    updated_at: "2025-01-15T10:30:00Z"
+                pagination:
+                  next_cursor: "eyJpZCI6MTI0fQ=="
+                  prev_cursor: null
+                  page_size: 1
+                  has_next: true
+                  has_prev: false
         "400":
           description: Invalid query parameters
           content:
@@ -288,8 +339,6 @@ paths:
       summary: Get media by ID
       description: |
         Retrieve detailed information about a specific media file.
-
-        **Status**: 🚧 Not Implemented - Returns 404 Not Found
       operationId: getMediaById
       parameters:
         - name: id
@@ -300,11 +349,21 @@ paths:
             $ref: "#/components/schemas/MediaId"
       responses:
         "200":
-          description: Media information (planned)
+          description: Media information retrieved successfully
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/MediaDto"
+              example:
+                id: 123
+                content_hash: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+                original_filename: "example.jpg"
+                media_type: "image/jpeg"
+                media_path: "ab/cd/ef/abcdef123456"
+                file_size: 1048576
+                processing_status: "Complete"
+                uploaded_at: "2025-01-15T10:30:00Z"
+                updated_at: "2025-01-15T10:30:00Z"
         "401":
           description: Unauthorized - Invalid or missing JWT token
           content:
@@ -315,14 +374,14 @@ paths:
                 error: "Unauthorized"
                 message: "Invalid or missing authentication token"
         "404":
-          description: Media not found (current response)
+          description: Media not found
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
                 error: "Not Found"
-                message: "Media not found"
+                message: "Media with ID 123"
 
     delete:
       tags: [media]
@@ -332,8 +391,6 @@ paths:
 
         This operation removes both the file from storage and the metadata from the database.
         The deletion is irreversible.
-
-        **Status**: ✅ Implemented
       operationId: deleteMedia
       parameters:
         - name: id
@@ -379,8 +436,6 @@ paths:
       summary: Download media file
       description: |
         Download the actual media file binary data.
-
-        **Status**: 🚧 Not Implemented - Returns 501 Not Implemented
       operationId: downloadMedia
       parameters:
         - name: id
@@ -391,7 +446,7 @@ paths:
             $ref: "#/components/schemas/MediaId"
       responses:
         "200":
-          description: Media file binary data (planned)
+          description: Media file binary data
           content:
             image/jpeg:
               schema:
@@ -438,15 +493,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-        "501":
-          description: Not implemented (current response)
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                error: "Not Implemented"
-                message: "Media download functionality is not yet implemented"
 
   /media/upload-request:
     post:
@@ -462,7 +508,6 @@ paths:
         - Dangerous file extension filtering
         - Deduplication support
 
-        **Status**: ✅ Implemented
       operationId: initiateUpload
       requestBody:
         description: Upload session initiation request
@@ -534,7 +579,6 @@ paths:
         - Validates file size matches expectation
         - Content type verification
 
-        **Status**: ✅ Implemented
       operationId: uploadFile
       parameters:
         - name: token
@@ -649,7 +693,6 @@ paths:
         - Get error details if processing failed
         - Retrieve download URL when processing complete
 
-        **Status**: ✅ Implemented
       operationId: getUploadStatus
       parameters:
         - $ref: "#/components/parameters/MediaId"
@@ -978,6 +1021,7 @@ components:
         - content_hash
         - original_filename
         - media_type
+        - media_path
         - file_size
         - processing_status
         - uploaded_at
@@ -989,13 +1033,19 @@ components:
           type: string
           pattern: "^[a-f0-9]{64}$"
           description: SHA-256 hash of the file content
-          example: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          example: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
         original_filename:
           type: string
           description: Original filename as uploaded
           example: "example.jpg"
         media_type:
-          $ref: "#/components/schemas/MediaType"
+          type: string
+          description: MIME type of the media file
+          example: "image/jpeg"
+        media_path:
+          type: string
+          description: Content-addressable storage path
+          example: "ab/cd/ef/abcdef123456"
         file_size:
           type: integer
           format: int64
@@ -1003,123 +1053,71 @@ components:
           description: File size in bytes
           example: 1048576
         processing_status:
-          $ref: "#/components/schemas/ProcessingStatus"
+          type: string
+          enum: [Pending, Processing, Complete, Failed]
+          description: Current processing status
+          example: "Complete"
         uploaded_at:
           type: string
           format: date-time
           description: ISO 8601 timestamp when the file was uploaded
-          example: "2024-08-24T10:30:00Z"
+          example: "2025-01-15T10:30:00Z"
         updated_at:
           type: string
           format: date-time
           description: ISO 8601 timestamp when the file was last updated
-          example: "2024-08-24T10:35:00Z"
+          example: "2025-01-15T10:30:00Z"
 
-    MediaType:
-      oneOf:
-        - $ref: "#/components/schemas/ImageMediaType"
-        - $ref: "#/components/schemas/VideoMediaType"
-        - $ref: "#/components/schemas/AudioMediaType"
-      discriminator:
-        propertyName: type
-
-    ImageMediaType:
+    PaginatedMediaResponse:
       type: object
       required:
-        - Image
+        - data
+        - pagination
       properties:
-        Image:
-          type: object
-          required:
-            - format
-            - width
-            - height
-          properties:
-            format:
-              type: string
-              enum: [Jpeg, Png, WebP, Avif, Gif]
-              example: Jpeg
-            width:
-              type: integer
-              minimum: 1
-              example: 1920
-            height:
-              type: integer
-              minimum: 1
-              example: 1080
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/MediaDto"
+          description: List of media items for current page
+        pagination:
+          $ref: "#/components/schemas/PaginationInfo"
 
-    VideoMediaType:
+    PaginationInfo:
       type: object
       required:
-        - Video
+        - page_size
+        - has_next
+        - has_prev
       properties:
-        Video:
-          type: object
-          required:
-            - format
-            - width
-            - height
-          properties:
-            format:
-              type: string
-              enum: [Mp4, Webm, Mov, Avi]
-              example: Mp4
-            width:
-              type: integer
-              minimum: 1
-              example: 1280
-            height:
-              type: integer
-              minimum: 1
-              example: 720
-            duration_seconds:
-              type: integer
-              minimum: 0
-              nullable: true
-              example: 120
-
-    AudioMediaType:
-      type: object
-      required:
-        - Audio
-      properties:
-        Audio:
-          type: object
-          required:
-            - format
-          properties:
-            format:
-              type: string
-              enum: [Mp3, Wav, Flac, Ogg]
-              example: Mp3
-            duration_seconds:
-              type: integer
-              minimum: 0
-              nullable: true
-              example: 240
-            bitrate:
-              type: integer
-              minimum: 0
-              nullable: true
-              example: 128000
+        next_cursor:
+          type: string
+          nullable: true
+          description: Base64-encoded cursor for next page (null if last page)
+          example: "eyJpZCI6MTI0fQ=="
+        prev_cursor:
+          type: string
+          nullable: true
+          description: Cursor for previous page (currently null, reserved for future use)
+          example: null
+        page_size:
+          type: integer
+          minimum: 0
+          description: Number of items in current page
+          example: 1
+        has_next:
+          type: boolean
+          description: Whether there are more items after this page
+          example: true
+        has_prev:
+          type: boolean
+          description: Whether there are items before this page (based on cursor presence)
+          example: false
 
     ProcessingStatus:
-      oneOf:
-        - type: string
-          enum: [Pending, Processing, Complete]
-        - type: object
-          required:
-            - Failed
-          properties:
-            Failed:
-              type: string
-              description: Error message describing the failure
-              example: "Corrupted file header"
-      examples:
-        - Pending
-        - Processing
-        - Complete
-        - Failed: "Invalid file format"
+      type: string
+      enum: [Pending, Processing, Complete, Failed]
+      description: Current processing status of the media file
+      example: "Complete"
 
     UploadMediaResponse:
       type: object
@@ -1212,10 +1210,7 @@ components:
         media_id:
           $ref: "#/components/schemas/MediaId"
         status:
-          type: string
-          enum: [Pending, Processing, Complete, Failed]
-          description: Current processing status
-          example: "Complete"
+          $ref: "#/components/schemas/ProcessingStatus"
         progress:
           type: integer
           minimum: 0
@@ -1326,16 +1321,6 @@ components:
           example:
             error: "Not Found"
             message: "The requested resource was not found"
-
-    NotImplemented:
-      description: The requested functionality is not yet implemented
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorResponse"
-          example:
-            error: "Not Implemented"
-            message: "This functionality is not yet implemented"
 
     BadRequest:
       description: Invalid request parameters

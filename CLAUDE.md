@@ -155,6 +155,12 @@ The service includes comprehensive OAuth2 integration tests. Key testing scenari
 - `cargo test test_token_introspection` - Test OAuth2 token introspection
 - `cargo test test_client_credentials` - Test service-to-service authentication
 
+**Metrics Testing:**
+
+- `cargo test metrics` - Run metrics endpoint integration tests
+- `cargo test test_metrics_endpoint` - Test Prometheus metrics format
+- `cargo test test_metrics_collection` - Test metrics collection functionality
+
 **Manual Testing with JWT Tokens:**
 
 ```bash
@@ -167,6 +173,9 @@ curl -H "Authorization: Bearer <your-jwt-token>" \
 
 # Test OAuth2 configuration
 curl http://localhost:3000/api/v1/media-management/health  # No auth required
+
+# Test metrics endpoint
+curl http://localhost:3000/metrics  # No auth required, returns Prometheus format
 ```
 
 **Environment Variables for Testing:**
@@ -180,6 +189,10 @@ OAUTH2_INTROSPECTION_ENABLED=false
 
 # Configure test OAuth2 service URL
 OAUTH2_SERVICE_BASE_URL=http://localhost:8080/api/v1/auth
+
+# Metrics configuration for testing
+MEDIA_SERVICE_MIDDLEWARE_METRICS_ENABLED=true
+MEDIA_SERVICE_MIDDLEWARE_METRICS_ENDPOINT_ENABLED=true
 ```
 
 ### Code Coverage
@@ -295,7 +308,11 @@ src/
 - **Tracing** - Structured logging with correlation IDs
 - **OpenTelemetry** - Metrics, traces, and logs for production monitoring
 - **Health Checks** - Kubernetes-native liveness and readiness probes
-- **Prometheus Metrics** - Custom business metrics and system monitoring
+- **Prometheus Metrics** - Comprehensive metrics collection and `/metrics` endpoint
+  - HTTP request/response metrics (duration, size, errors)
+  - Business metrics (media uploads, processing, storage)
+  - System metrics (authentication, rate limiting)
+  - Configurable metric collection (enable/disable specific types)
 
 ### Configuration & Environment
 
@@ -357,6 +374,10 @@ The service exposes HTTP endpoints following RESTful patterns:
 
 - `GET /health` - Liveness probe
 - `GET /ready` - Readiness probe
+
+**Monitoring Endpoints**:
+
+- `GET /metrics` - Prometheus metrics for monitoring and observability
 
 **Media Endpoints**:
 
