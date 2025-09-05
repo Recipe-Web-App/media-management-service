@@ -1,5 +1,5 @@
 use axum::{
-    routing::{delete, get, post},
+    routing::{delete, get, post, put},
     Router,
 };
 
@@ -29,6 +29,7 @@ fn media_routes() -> Router<AppState> {
         .route("/", get(handlers::media::list_media))
         // New presigned URL upload endpoints
         .route("/upload-request", post(handlers::media::initiate_upload))
+        .route("/upload/{token}", put(handlers::media::upload_file))
         // Status and retrieval endpoints
         .route("/{id}", get(handlers::media::get_media))
         .route("/{id}/status", get(handlers::media::get_upload_status))

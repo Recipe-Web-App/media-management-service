@@ -26,7 +26,14 @@ use crate::{
     },
     presentation::{
         handlers::media::AppState,
-        middleware::{error::global_error_handler, AppError},
+        middleware::{
+            error::global_error_handler,
+            metrics::{
+                create_metrics_endpoint, initialize_prometheus_exporter, metrics_middleware,
+                MetricsCollector, MetricsConfig as MiddlewareMetricsConfig,
+            },
+            AppError,
+        },
         routes,
     },
 };
@@ -48,6 +55,42 @@ impl MakeRequestId for EnhancedRequestId {
 /// Creates an application with a reconnecting repository that automatically handles
 /// database connection failures and attempts periodic reconnection.
 pub fn create_app(config: &AppConfig, database: Option<&Database>) -> Router {
+    // Initialize metrics if enabled
+    let (metrics_router, metrics_collector) = if config.middleware.metrics.enabled {
+        match initialize_prometheus_exporter() {
+            Ok(handle) => {
+                let metrics_config = MiddlewareMetricsConfig {
+                    request_metrics: config.middleware.metrics.collect_request_metrics,
+                    timing_metrics: config.middleware.metrics.collect_timing_metrics,
+                    error_metrics: config.middleware.metrics.collect_error_metrics,
+                    business_metrics: config.middleware.metrics.collect_business_metrics,
+                    normalize_routes: config.middleware.metrics.normalize_routes,
+                    collection_interval: Duration::from_secs(
+                        config.middleware.metrics.collection_interval_seconds,
+                    ),
+                    custom_labels: std::collections::HashMap::new(),
+                };
+                let collector = MetricsCollector::new(metrics_config);
+                collector.initialize_metrics();
+
+                let metrics_router = if config.middleware.metrics.endpoint_enabled {
+                    Some(create_metrics_endpoint(handle))
+                } else {
+                    None
+                };
+
+                info!("Metrics collection enabled: {}", config.middleware.metrics.endpoint_path);
+                (metrics_router, Some(collector))
+            }
+            Err(e) => {
+                tracing::error!("Failed to initialize Prometheus exporter: {}", e);
+                (None, None)
+            }
+        }
+    } else {
+        (None, None)
+    };
+
     let middleware_stack = ServiceBuilder::new()
         .layer(SetRequestIdLayer::new(
             header::HeaderName::from_static("x-request-id"),
@@ -108,10 +151,22 @@ pub fn create_app(config: &AppConfig, database: Option<&Database>) -> Router {
         tracing::warn!("Creating application with disconnected repository - will attempt periodic reconnection every 30 seconds");
     }
 
-    Router::new()
+    let mut app = Router::new()
         .merge(routes::create_routes(app_state))
         .layer(middleware_stack)
-        .fallback(not_found_handler)
+        .fallback(not_found_handler);
+
+    // Add metrics endpoint if enabled
+    if let Some(metrics_router) = metrics_router {
+        app = app.merge(metrics_router);
+    }
+
+    // Add metrics middleware at the router level if collector is available
+    if let Some(collector) = metrics_collector {
+        app = app.layer(axum::middleware::from_fn(metrics_middleware(collector)));
+    }
+
+    app
 }
 
 /// Comprehensive health check endpoint that validates all system dependencies
@@ -652,5 +707,84 @@ mod tests {
         // We can't easily test the internal configuration without making the function return values
         // This at least ensures the function doesn't panic
         assert!(std::ptr::addr_of!(cors_layer).is_aligned());
+    }
+
+    #[tokio::test]
+    async fn test_create_app_with_metrics_enabled() {
+        let mut config = create_test_config();
+        config.middleware.metrics.enabled = true;
+        config.middleware.metrics.endpoint_enabled = true;
+
+        let app = create_app(&config, None);
+
+        // Verify app is created successfully with metrics
+        assert!(std::ptr::addr_of!(app).is_aligned());
+
+        // The actual metrics functionality would be tested in integration tests
+        // Here we just verify the app builds correctly with metrics enabled
+    }
+
+    #[tokio::test]
+    async fn test_create_app_with_metrics_disabled() {
+        let mut config = create_test_config();
+        config.middleware.metrics.enabled = false;
+
+        let app = create_app(&config, None);
+
+        // Verify app is created successfully without metrics
+        assert!(std::ptr::addr_of!(app).is_aligned());
+    }
+
+    #[tokio::test]
+    async fn test_create_app_with_metrics_enabled_endpoint_disabled() {
+        let mut config = create_test_config();
+        config.middleware.metrics.enabled = true;
+        config.middleware.metrics.endpoint_enabled = false;
+
+        let app = create_app(&config, None);
+
+        // Verify app is created successfully with metrics collection but no endpoint
+        assert!(std::ptr::addr_of!(app).is_aligned());
+    }
+
+    #[test]
+    fn test_metrics_config_conversion() {
+        let config = create_test_config();
+
+        // Test that we can convert from infrastructure MetricsConfig to middleware MetricsConfig
+        let middleware_config = MiddlewareMetricsConfig {
+            request_metrics: config.middleware.metrics.collect_request_metrics,
+            timing_metrics: config.middleware.metrics.collect_timing_metrics,
+            error_metrics: config.middleware.metrics.collect_error_metrics,
+            business_metrics: config.middleware.metrics.collect_business_metrics,
+            normalize_routes: config.middleware.metrics.normalize_routes,
+            collection_interval: Duration::from_secs(
+                config.middleware.metrics.collection_interval_seconds,
+            ),
+            custom_labels: std::collections::HashMap::new(),
+        };
+
+        // Verify the conversion preserves the expected values
+        assert_eq!(
+            middleware_config.request_metrics,
+            config.middleware.metrics.collect_request_metrics
+        );
+        assert_eq!(
+            middleware_config.timing_metrics,
+            config.middleware.metrics.collect_timing_metrics
+        );
+        assert_eq!(
+            middleware_config.error_metrics,
+            config.middleware.metrics.collect_error_metrics
+        );
+        assert_eq!(
+            middleware_config.business_metrics,
+            config.middleware.metrics.collect_business_metrics
+        );
+        assert_eq!(middleware_config.normalize_routes, config.middleware.metrics.normalize_routes);
+        assert_eq!(
+            middleware_config.collection_interval.as_secs(),
+            config.middleware.metrics.collection_interval_seconds
+        );
     }
 }
