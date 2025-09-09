@@ -8,7 +8,7 @@ license = "MIT OR Apache-2.0"
 anyhow = "1.0.99"
 async-trait = "0.1.89"
 axum = { version = "0.8.4", features = ["multipart"] }
-chrono = { version = "0.4.39", features = ["serde"] }
+chrono = { version = "0.4.42", features = ["serde"] }
 config = "0.15.15"
 dotenvy = "0.15.7"
 serde = { version = "1.0.219", features = ["derive"] }
