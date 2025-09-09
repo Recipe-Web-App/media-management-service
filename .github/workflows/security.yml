@@ -64,7 +64,7 @@ jobs:
           fetch-depth: 0
 
       - name: Run TruffleHog OSS
-        uses: trufflesecurity/trufflehog@v3.90.5
+        uses: trufflesecurity/trufflehog@v3.90.6
         with:
           path: ./
           base: main
