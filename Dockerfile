@@ -2,7 +2,7 @@
 # Optimized for production deployment with security and performance considerations
 
 # Build stage
-FROM rust:1.89-bookworm AS builder
+FROM rust:1.90-bookworm AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
