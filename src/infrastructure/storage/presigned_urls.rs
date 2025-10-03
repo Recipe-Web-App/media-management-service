@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
-use rand::{distributions::Alphanumeric, Rng};
+use rand::distr::Alphanumeric;
+use rand::Rng;
 use sha2::Sha256;
 use std::time::Duration;
 
@@ -157,7 +158,7 @@ impl PresignedUrlService {
     /// Generate a unique upload token
     fn generate_upload_token() -> String {
         let random_part: String =
-            rand::thread_rng().sample_iter(&Alphanumeric).take(32).map(char::from).collect();
+            rand::rng().sample_iter(&Alphanumeric).take(32).map(char::from).collect();
 
         format!("upload_{random_part}")
     }
