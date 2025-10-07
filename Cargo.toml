@@ -23,7 +23,7 @@ tracing-subscriber = { version = "0.3.20", features = ["json", "env-filter"] }
 tracing-appender = "0.2.3"
 uuid = { version = "1.11.1", features = ["v4", "serde"] }
 validator = "0.20.0"
-jsonwebtoken = "10.0.0"
+jsonwebtoken = { version = "10.0.0", features = ["aws_lc_rs"] }
 axum-extra = { version = "0.10.3", features = ["typed-header"] }
 metrics = "0.24.0"
 metrics-exporter-prometheus = "0.17.2"
