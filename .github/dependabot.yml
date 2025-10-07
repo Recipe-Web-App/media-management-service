@@ -8,15 +8,13 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "09:00"
-      timezone: "UTC"
-    open-pull-requests-limit: 10
+      timezone: "US/Eastern"
+    open-pull-requests-limit: 100
     labels:
       - "dependencies"
       - "rust"
     commit-message:
       prefix: "deps(cargo)"
-    reviewers:
-      - "@jsamuelsen"
     ignore:
       # Ignore major version updates for critical async runtime
       - dependency-name: "tokio"
@@ -52,15 +50,13 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "09:00"
-      timezone: "UTC"
-    open-pull-requests-limit: 5
+      timezone: "US/Eastern"
+    open-pull-requests-limit: 100
     labels:
       - "dependencies"
       - "github-actions"
     commit-message:
       prefix: "deps(actions)"
-    reviewers:
-      - "@jsamuelsen"
 
   # Docker dependencies
   - package-ecosystem: "docker"
@@ -69,12 +65,10 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "09:00"
-      timezone: "UTC"
-    open-pull-requests-limit: 5
+      timezone: "US/Eastern"
+    open-pull-requests-limit: 100
     labels:
       - "dependencies"
       - "docker"
     commit-message:
       prefix: "deps(docker)"
-    reviewers:
-      - "@jsamuelsen"
