@@ -1,0 +1,149 @@
+---
+name: Documentation Issue
+description: Report missing, incorrect, or unclear documentation
+title: "[Docs]: "
+labels: ["documentation", "needs-triage"]
+assignees:
+  - jsamuelsen
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve our documentation! Clear documentation is essential for
+        a successful project.
+
+  - type: dropdown
+    id: doc-type
+    attributes:
+      label: Documentation Type
+      description: What kind of documentation issue is this?
+      options:
+        - Missing Documentation
+        - Incorrect Information
+        - Unclear/Confusing
+        - Outdated Information
+        - Typo/Grammar
+        - Code Example Error
+        - API Documentation
+        - Configuration Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: location
+    attributes:
+      label: Documentation Location
+      description: Where is the documentation issue?
+      options:
+        - README.md
+        - CLAUDE.md
+        - CONTRIBUTING.md
+        - SECURITY.md
+        - SUPPORT.md
+        - API Documentation (code comments)
+        - Inline Code Comments
+        - Configuration Examples (.env.example)
+        - Kubernetes Manifests (k8s/)
+        - Deployment Scripts
+        - Error Messages
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Issue Description
+      description: What's wrong with the documentation?
+      placeholder: Clearly describe the documentation issue
+    validations:
+      required: true
+
+  - type: textarea
+    id: specific-location
+    attributes:
+      label: Specific Location
+      description: Exact file, line number, or section
+      placeholder: |
+        File: README.md
+        Section: "API Endpoints"
+        Line: 145
+        URL: https://github.com/.../README.md#L145
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-content
+    attributes:
+      label: Current Documentation
+      description: Quote the current (problematic) documentation
+      placeholder: |
+        > Current text from the documentation...
+      render: markdown
+
+  - type: textarea
+    id: suggested-improvement
+    attributes:
+      label: Suggested Improvement
+      description: How should it be improved?
+      placeholder: |
+        Proposed replacement text or addition...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: audience
+    attributes:
+      label: Target Audience
+      description: Who is affected by this documentation issue?
+      options:
+        - End Users
+        - API Consumers
+        - Contributors/Developers
+        - Operators/DevOps
+        - All Users
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Why is this change important? What confusion does it cause?
+      placeholder: |
+        I was trying to...
+        The current documentation led me to believe...
+        This caused confusion because...
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples or References
+      description: Links to good examples or external references
+      placeholder: |
+        Similar pattern in other projects:
+        Relevant specification:
+        External documentation:
+
+  - type: checkboxes
+    id: willingness
+    attributes:
+      label: Contribution
+      description: Are you willing to help?
+      options:
+        - label: I am willing to submit a PR to fix this documentation issue
+          required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched existing documentation issues
+          required: true
+        - label: I have checked this applies to the latest version
+          required: true
+        - label: I have provided specific location and suggested improvement
+          required: true

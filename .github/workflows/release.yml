@@ -5,17 +5,28 @@ on: # yamllint disable-line rule:truthy
   push:
     branches: [main]
 
+# Cancel in-progress runs for the same workflow and ref
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
+# Set minimal permissions (jobs override as needed)
+permissions:
+  contents: read
+
 jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
     if: "!contains(github.event.head_commit.message, 'ci skip')"
+    permissions:
+      contents: write # For creating releases and pushing tags
     outputs:
       released: ${{ steps.release.outputs.released }}
       version: ${{ steps.release.outputs.version }}

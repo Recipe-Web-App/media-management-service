@@ -10,6 +10,15 @@ on: # yamllint disable-line rule:truthy
     # Run security scans weekly on Sundays at midnight UTC
     - cron: "0 0 * * 0"
 
+# Cancel in-progress runs for the same workflow and ref
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Set minimal permissions (jobs override as needed)
+permissions:
+  contents: read
+
 jobs:
   codeql:
     name: CodeQL Analysis
@@ -57,6 +66,8 @@ jobs:
   secret-scan:
     name: Secret Scanning
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -91,6 +102,8 @@ jobs:
     name: Semgrep Security Scan
     runs-on: ubuntu-latest
     if: github.actor != 'dependabot[bot]'
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -108,6 +121,8 @@ jobs:
   cargo-audit:
     name: Cargo Security Audit
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -143,6 +158,8 @@ jobs:
   cargo-deny:
     name: Cargo Deny Check
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -159,6 +176,8 @@ jobs:
   supply-chain:
     name: Supply Chain Security
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5

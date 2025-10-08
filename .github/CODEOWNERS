@@ -1,36 +1,36 @@
 # Global code owners
 # These owners will be the default owners for everything in the repo
 # unless a later match takes precedence.
-* @jsamuelsen11
+* @jsamuelsen
 
 # Rust source code
-/src/ @jsamuelsen11
-/Cargo.toml @jsamuelsen11
-/Cargo.lock @jsamuelsen11
+/src/ @jsamuelsen
+/Cargo.toml @jsamuelsen
+/Cargo.lock @jsamuelsen
 
 # Infrastructure and deployment
-/.github/ @jsamuelsen11
-/Dockerfile @jsamuelsen11
-/docker-compose.yml @jsamuelsen11
-/.dockerignore @jsamuelsen11
+/.github/ @jsamuelsen
+/Dockerfile @jsamuelsen
+/docker-compose.yml @jsamuelsen
+/.dockerignore @jsamuelsen
 
 # Configuration files
-/.env @jsamuelsen11
-/.env.example @jsamuelsen11
-/rustfmt.toml @jsamuelsen11
-/deny.toml @jsamuelsen11
-/.pre-commit-config.yaml @jsamuelsen11
+/.env @jsamuelsen
+/.env.example @jsamuelsen
+/rustfmt.toml @jsamuelsen
+/deny.toml @jsamuelsen
+/.pre-commit-config.yaml @jsamuelsen
 
 # Documentation
-/README.md @jsamuelsen11
-/CHANGELOG.md @jsamuelsen11
-/CLAUDE.md @jsamuelsen11
-/docs/ @jsamuelsen11
+/README.md @jsamuelsen
+/CHANGELOG.md @jsamuelsen
+/CLAUDE.md @jsamuelsen
+/docs/ @jsamuelsen
 
 # Security-sensitive files
-/deny.toml @jsamuelsen11
-/.github/workflows/security.yml @jsamuelsen11
-/.github/dependency-review-config.yml @jsamuelsen11
+/deny.toml @jsamuelsen
+/.github/workflows/security.yml @jsamuelsen
+/.github/dependency-review-config.yml @jsamuelsen
 
 # VS Code configuration
-/.vscode/ @jsamuelsen11
+/.vscode/ @jsamuelsen

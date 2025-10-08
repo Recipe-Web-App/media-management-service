@@ -1,12 +1,12 @@
 ---
 blank_issues_enabled: false
 contact_links:
-  - name: 📚 Documentation
-    url: https://github.com/jsamuelsen/recipe-web-app/wiki
-    about: Check the documentation for usage guides and API reference
-  - name: 💬 Discussion
-    url: https://github.com/jsamuelsen/recipe-web-app/discussions
+  - name: Security Vulnerability
+    url: https://github.com/Recipe-Web-App/media-management-service/security/advisories/new
+    about: Please report security vulnerabilities through GitHub Security Advisories
+  - name: Discussion Forum
+    url: https://github.com/Recipe-Web-App/media-management-service/discussions
     about: Ask questions and discuss ideas with the community
-  - name: 🔒 Security Issues
-    url: https://github.com/jsamuelsen/recipe-web-app/security/advisories/new
-    about: Report security vulnerabilities privately
+  - name: Documentation
+    url: https://github.com/Recipe-Web-App/media-management-service/blob/main/README.md
+    about: View comprehensive documentation and guides

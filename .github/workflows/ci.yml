@@ -7,9 +7,18 @@ on: # yamllint disable-line rule:truthy
   pull_request:
     branches: [main]
 
+# Cancel in-progress runs for the same workflow and ref
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
+
+# Set minimal permissions
+permissions:
+  contents: read
 
 jobs:
   test:
@@ -106,6 +115,9 @@ jobs:
   security:
     name: Security Audit
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write # For uploading SARIF results
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -140,6 +152,9 @@ jobs:
     name: Docker Build
     runs-on: ubuntu-latest
     if: github.event_name == 'push' || github.event.pull_request.draft == false
+    permissions:
+      contents: read
+      security-events: write # For uploading Trivy SARIF results
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5

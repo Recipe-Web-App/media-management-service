@@ -1,0 +1,148 @@
+---
+name: Task
+description: Create a task or work item to track development work
+title: "[Task]: "
+labels: ["task", "needs-triage"]
+assignees:
+  - jsamuelsen
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to create tasks for planned work, development items, or implementation tracking.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Task Description
+      description: What needs to be done?
+      placeholder: Clearly describe the task or work item
+    validations:
+      required: true
+
+  - type: dropdown
+    id: task-type
+    attributes:
+      label: Task Type
+      description: What kind of task is this?
+      options:
+        - Implementation
+        - Refactoring
+        - Technical Debt
+        - Infrastructure
+        - Testing
+        - Documentation
+        - Research/Investigation
+        - Configuration
+        - Migration
+        - Optimization
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component Area
+      description: Which area does this task relate to?
+      options:
+        - File Upload/Download
+        - Media Processing
+        - Image Processing
+        - Video Processing
+        - Storage System
+        - Database/Persistence
+        - API Endpoints
+        - Authentication/Authorization
+        - Health Checks
+        - Kubernetes Deployment
+        - Docker Container
+        - CI/CD Workflows
+        - Testing Infrastructure
+        - Documentation
+        - Configuration
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: What's the priority of this task?
+      options:
+        - Critical (Blocking)
+        - High (Important)
+        - Medium (Normal)
+        - Low (Nice to have)
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: What defines completion of this task?
+      placeholder: |
+        - [ ] Criterion 1
+        - [ ] Criterion 2
+        - [ ] Criterion 3
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation-notes
+    attributes:
+      label: Implementation Notes
+      description: Technical details, approach, or considerations
+      placeholder: |
+        - Files to modify:
+        - Dependencies:
+        - Approach:
+        - Considerations:
+
+  - type: textarea
+    id: testing-requirements
+    attributes:
+      label: Testing Requirements
+      description: What testing is needed?
+      placeholder: |
+        - [ ] Unit tests
+        - [ ] Integration tests
+        - [ ] Manual testing
+        - [ ] Performance testing
+
+  - type: textarea
+    id: related
+    attributes:
+      label: Related Issues/PRs
+      description: Link to related issues or pull requests
+      placeholder: |
+        Related to #
+        Depends on #
+        Blocks #
+
+  - type: dropdown
+    id: estimated-effort
+    attributes:
+      label: Estimated Effort
+      description: Rough time estimate
+      options:
+        - Small (< 1 day)
+        - Medium (1-3 days)
+        - Large (3-5 days)
+        - Extra Large (> 5 days)
+        - Unknown
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Task Checklist
+      description: Pre-work checklist
+      options:
+        - label: I have checked for similar existing tasks
+          required: true
+        - label: This task is clearly defined and actionable
+          required: true
+        - label: Acceptance criteria are specific and measurable
+          required: false
