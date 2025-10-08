@@ -194,6 +194,14 @@ data:
   MEDIA_SERVICE_SERVER_PORT: "3000"
   POSTGRES_HOST: "${POSTGRES_HOST}"
   POSTGRES_DB: "${POSTGRES_DB}"
+  POSTGRES_SCHEMA: "${POSTGRES_SCHEMA}"
+  OAUTH2_SERVICE_ENABLED: "true"
+  OAUTH2_CLIENT_ID: "${OAUTH2_CLIENT_ID}"
+  OAUTH2_SERVICE_BASE_URL: "${OAUTH2_SERVICE_BASE_URL}"
+  OAUTH2_INTROSPECTION_ENABLED: "false"
+  OAUTH2_SERVICE_TO_SERVICE_ENABLED: "true"
+  MEDIA_SERVICE_MIDDLEWARE_METRICS_ENABLED: "true"
+  MEDIA_SERVICE_MIDDLEWARE_METRICS_ENDPOINT_ENABLED: "true"
   # ... other non-sensitive config
 ```
 
@@ -203,6 +211,8 @@ data:
 # Applied from .env.prod via envsubst
 stringData:
   MEDIA_MANAGEMENT_DB_PASSWORD: "${MEDIA_MANAGEMENT_DB_PASSWORD}"
+  OAUTH2_CLIENT_SECRET: "${OAUTH2_CLIENT_SECRET}"
+  JWT_SECRET: "${JWT_SECRET}"
 ```
 
 ### Production Environment File (`.env.prod`)
@@ -217,6 +227,19 @@ POSTGRES_DB=recipe_database
 POSTGRES_SCHEMA=recipe_manager
 MEDIA_MANAGEMENT_DB_USER=media_management_db_user
 MEDIA_MANAGEMENT_DB_PASSWORD=your_secure_password
+
+# OAuth2 Authentication Configuration
+OAUTH2_SERVICE_ENABLED=true
+OAUTH2_CLIENT_ID=recipe-service-client
+OAUTH2_CLIENT_SECRET=your_oauth2_client_secret
+OAUTH2_SERVICE_BASE_URL=http://auth-service.auth.svc.cluster.local/api/v1/auth
+JWT_SECRET=your_jwt_secret_at_least_32_characters_long
+OAUTH2_INTROSPECTION_ENABLED=false
+OAUTH2_SERVICE_TO_SERVICE_ENABLED=true
+
+# Metrics Configuration
+MEDIA_SERVICE_MIDDLEWARE_METRICS_ENABLED=true
+MEDIA_SERVICE_MIDDLEWARE_METRICS_ENDPOINT_ENABLED=true
 
 # Runtime Mode (automatically set to production in container)
 RUN_MODE=production
@@ -241,7 +264,11 @@ RUN_MODE=production
 Restricts network traffic to:
 
 - **Ingress**: Only from ingress controller
-- **Egress**: Database and DNS only
+- **Egress**:
+  - Database service (PostgreSQL)
+  - OAuth2 authentication service
+  - DNS resolution
+  - Prometheus metrics scraping (if external)
 
 ## Storage
 
@@ -287,9 +314,14 @@ spec:
 
 ### Metrics
 
-- **Framework**: OpenTelemetry (planned)
-- **Export**: Prometheus format
-- **Endpoints**: `/metrics` (planned)
+- **Framework**: Prometheus metrics
+- **Export**: Prometheus text format
+- **Endpoint**: `/metrics` (available at root path, not under API prefix)
+- **Metrics Categories**:
+  - HTTP request/response metrics (duration, size, errors)
+  - Business metrics (uploads, processing, storage)
+  - System metrics (authentication, rate limiting)
+  - Error tracking and classification
 
 ## Troubleshooting
 
@@ -333,6 +365,10 @@ kubectl describe secret media-management-secrets -n media-management
 
 # Verify environment variables in pod
 kubectl exec -n media-management deployment/media-management-service -- env | grep MEDIA
+
+# Check OAuth2 configuration
+kubectl exec -n media-management deployment/media-management-service -- env | grep OAUTH2
+kubectl exec -n media-management deployment/media-management-service -- env | grep JWT
 ```
 
 ### Debug Commands
@@ -378,8 +414,24 @@ kubectl port-forward -n media-management deployment/media-management-service 300
 
 - Integrate with Prometheus/Grafana
 - Set up alerting for critical metrics
-- Implement distributed tracing
+- Implement distributed tracing (planned)
 - Monitor resource utilization
+- Configure Prometheus scraping:
+
+  ```yaml
+  apiVersion: v1
+  kind: ServiceMonitor
+  metadata:
+    name: media-management-metrics
+  spec:
+    selector:
+      matchLabels:
+        app: media-management-service
+    endpoints:
+      - port: http
+        path: /metrics
+        interval: 15s
+  ```
 
 ## See Also
 

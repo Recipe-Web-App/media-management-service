@@ -102,6 +102,19 @@ POSTGRES_SCHEMA=recipe_manager
 MEDIA_MANAGEMENT_DB_USER=your_username
 MEDIA_MANAGEMENT_DB_PASSWORD=your_password
 
+# OAuth2 Authentication Configuration
+OAUTH2_SERVICE_ENABLED=true
+OAUTH2_CLIENT_ID=recipe-service-client
+OAUTH2_CLIENT_SECRET=your-oauth2-client-secret-here
+OAUTH2_SERVICE_BASE_URL=http://localhost:8080/api/v1/auth
+
+# JWT Configuration (must match auth service)
+JWT_SECRET=your-very-secure-secret-key-at-least-32-characters-long
+
+# Authentication Features
+OAUTH2_INTROSPECTION_ENABLED=false  # Use JWT validation (offline) vs API introspection (online)
+OAUTH2_SERVICE_TO_SERVICE_ENABLED=true  # Enable service-to-service authentication
+
 # Local Storage Paths
 MEDIA_SERVICE_STORAGE_BASE_PATH=./media
 MEDIA_SERVICE_STORAGE_TEMP_PATH=./media/temp
@@ -109,6 +122,10 @@ MEDIA_SERVICE_STORAGE_TEMP_PATH=./media/temp
 # Development Logging
 MEDIA_SERVICE_LOGGING_LEVEL=debug
 MEDIA_SERVICE_LOGGING_FORMAT=pretty
+
+# Metrics Configuration (optional)
+MEDIA_SERVICE_MIDDLEWARE_METRICS_ENABLED=true
+MEDIA_SERVICE_MIDDLEWARE_METRICS_ENDPOINT_ENABLED=true
 ```
 
 ### 3. Database Setup
@@ -251,6 +268,18 @@ dropdb recipe_database && createdb recipe_database
 | `MEDIA_MANAGEMENT_DB_USER`     | Database username | Yes      | `postgres`        |
 | `MEDIA_MANAGEMENT_DB_PASSWORD` | Database password | Yes      | `password123`     |
 
+### OAuth2 Authentication Configuration
+
+| Variable                            | Description                                       | Required | Example                             |
+| ----------------------------------- | ------------------------------------------------- | -------- | ----------------------------------- |
+| `OAUTH2_SERVICE_ENABLED`            | Enable OAuth2 authentication                      | Yes      | `true`                              |
+| `OAUTH2_CLIENT_ID`                  | OAuth2 client identifier                          | Yes      | `recipe-service-client`             |
+| `OAUTH2_CLIENT_SECRET`              | OAuth2 client secret                              | Yes      | `your-oauth2-secret`                |
+| `OAUTH2_SERVICE_BASE_URL`           | OAuth2 service base URL                           | Yes      | `http://localhost:8080/api/v1/auth` |
+| `JWT_SECRET`                        | JWT signing secret (must match auth service)      | Yes      | `your-32-char-secret`               |
+| `OAUTH2_INTROSPECTION_ENABLED`      | Use token introspection (online) vs JWT (offline) | No       | `false`                             |
+| `OAUTH2_SERVICE_TO_SERVICE_ENABLED` | Enable service-to-service authentication          | No       | `true`                              |
+
 ### Storage Configuration
 
 | Variable                              | Description               | Default        | Local Example      |
@@ -265,6 +294,13 @@ dropdb recipe_database && createdb recipe_database
 | ------------------------------ | ----------- | ------------- | ----------------------------------------- |
 | `MEDIA_SERVICE_LOGGING_LEVEL`  | Log level   | `debug`       | `trace`, `debug`, `info`, `warn`, `error` |
 | `MEDIA_SERVICE_LOGGING_FORMAT` | Log format  | `pretty`      | `pretty`, `json`                          |
+
+### Metrics Configuration
+
+| Variable                                            | Description                | Default | Options         |
+| --------------------------------------------------- | -------------------------- | ------- | --------------- |
+| `MEDIA_SERVICE_MIDDLEWARE_METRICS_ENABLED`          | Enable metrics collection  | `true`  | `true`, `false` |
+| `MEDIA_SERVICE_MIDDLEWARE_METRICS_ENDPOINT_ENABLED` | Enable `/metrics` endpoint | `true`  | `true`, `false` |
 
 ### Runtime Mode
 
@@ -427,7 +463,70 @@ cargo test --lib
 
 # Run tests in parallel
 cargo test -- --test-threads=4
+
+# Test OAuth2 integration
+cargo test oauth2
+
+# Test metrics collection
+cargo test metrics
 ```
+
+### OAuth2 Authentication Testing
+
+#### Local OAuth2 Service Setup
+
+To test OAuth2 authentication locally, you need an OAuth2 service running:
+
+1. **Start OAuth2 Service**: Ensure the Recipe Auth Service is running on `http://localhost:8080`
+2. **Configure Service Connection**: Update `.env.local` with OAuth2 service URL
+3. **Obtain JWT Token**: Use the auth service to generate a valid JWT token
+4. **Test Authentication**: Use the token in API requests
+
+#### Testing with JWT Tokens
+
+```bash
+# Test without authentication (should return 401)
+curl http://localhost:3000/api/v1/media-management/media/
+
+# Test with valid JWT token
+curl -H "Authorization: Bearer <your-jwt-token>" \
+  http://localhost:3000/api/v1/media-management/media/
+
+# Test health endpoint (no auth required)
+curl http://localhost:3000/api/v1/media-management/health
+
+# Test metrics endpoint (no auth required)
+curl http://localhost:3000/metrics
+```
+
+#### OAuth2 Configuration Modes
+
+**Offline JWT Validation (Recommended for Development):**
+
+```bash
+# .env.local configuration
+OAUTH2_INTROSPECTION_ENABLED=false
+JWT_SECRET=your-shared-secret-with-auth-service
+```
+
+**Online Token Introspection (Production-like):**
+
+```bash
+# .env.local configuration
+OAUTH2_INTROSPECTION_ENABLED=true
+OAUTH2_SERVICE_BASE_URL=http://localhost:8080/api/v1/auth
+```
+
+#### Disabling OAuth2 for Testing
+
+For local testing without an OAuth2 service:
+
+```bash
+# .env.local configuration
+OAUTH2_SERVICE_ENABLED=false
+```
+
+**Warning**: This disables authentication entirely. Only use for local development/testing.
 
 ## See Also
 
