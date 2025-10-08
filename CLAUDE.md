@@ -144,6 +144,20 @@ The service provides a comprehensive readiness check to determine if the service
 - `cargo clippy --all-targets --all-features -- -D warnings` - Run linter with warnings as errors
 - `cargo check` - Quick compile check without building executable
 
+#### Testing Variations
+
+- `cargo test <test_name>` - Run specific test by name
+- `cargo test --package media-management-service` - Run package-specific tests
+- `cargo test --doc` - Run documentation tests
+- `RUST_LOG=debug cargo test -- --nocapture` - Run tests with debug logging
+
+#### Security & Dependency Checks
+
+- `cargo deny check` - Run all security and license checks
+- `cargo deny check licenses` - Check license compliance only
+- `cargo deny check advisories` - Check for security advisories
+- `cargo deny check bans` - Check for banned dependencies
+
 ### OAuth2 Testing
 
 The service includes comprehensive OAuth2 integration tests. Key testing scenarios:
@@ -243,6 +257,14 @@ processing, storage, and retrieval with a focus on security, performance, and sc
 ### Core Architecture Pattern: Clean/Hexagonal Architecture
 
 The codebase follows Clean Architecture principles with clear separation of concerns:
+
+#### Library Structure
+
+The project is structured as both a library (`lib.rs`) and binary (`main.rs`):
+
+- **`src/lib.rs`**: Exports all modules for testing and potential reuse
+- **`src/main.rs`**: Application entry point that assembles components
+- This allows integration tests to import and test internal modules directly
 
 ```text
 src/
