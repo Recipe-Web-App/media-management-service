@@ -4,7 +4,7 @@ description: Report performance degradation or optimization opportunities
 title: "[Performance]: "
 labels: ["performance", "needs-triage"]
 assignees:
-  - jsamuelsen
+  - jsamuelsen11
 body:
   - type: markdown
     attributes:

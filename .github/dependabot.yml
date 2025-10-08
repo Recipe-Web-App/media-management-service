@@ -11,7 +11,7 @@ updates:
       timezone: "US/Eastern"
     open-pull-requests-limit: 100
     assignees:
-      - "jsamuelsen"
+      - "jsamuelsen11"
     labels:
       - "dependencies"
       - "rust"
@@ -56,7 +56,7 @@ updates:
       timezone: "US/Eastern"
     open-pull-requests-limit: 100
     assignees:
-      - "jsamuelsen"
+      - "jsamuelsen11"
     labels:
       - "dependencies"
       - "github-actions"
@@ -80,7 +80,7 @@ updates:
       timezone: "US/Eastern"
     open-pull-requests-limit: 100
     assignees:
-      - "jsamuelsen"
+      - "jsamuelsen11"
     labels:
       - "dependencies"
       - "docker"

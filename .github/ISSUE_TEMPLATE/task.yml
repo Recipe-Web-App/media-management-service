@@ -4,7 +4,7 @@ description: Create a task or work item to track development work
 title: "[Task]: "
 labels: ["task", "needs-triage"]
 assignees:
-  - jsamuelsen
+  - jsamuelsen11
 body:
   - type: markdown
     attributes:

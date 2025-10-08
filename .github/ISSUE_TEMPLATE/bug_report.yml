@@ -4,7 +4,7 @@ description: Report a bug or unexpected behavior in the media management service
 title: "[Bug]: "
 labels: ["bug", "needs-triage"]
 assignees:
-  - jsamuelsen
+  - jsamuelsen11
 body:
   - type: markdown
     attributes:

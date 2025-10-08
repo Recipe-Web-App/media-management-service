@@ -4,7 +4,7 @@ description: Suggest a new feature or enhancement for the media management servi
 title: "[Feature]: "
 labels: ["enhancement", "needs-triage"]
 assignees:
-  - jsamuelsen
+  - jsamuelsen11
 body:
   - type: markdown
     attributes:
