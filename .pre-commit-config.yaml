@@ -41,7 +41,7 @@ repos:
 
   # Security, license, and dependency policy enforcement
   - repo: https://github.com/EmbarkStudios/cargo-deny
-    rev: 0.18.4
+    rev: 0.18.5
     hooks:
       - id: cargo-deny
         args: ["check"] # Run all checks: licenses, bans, advisories, sources
@@ -98,7 +98,7 @@ repos:
 
   # Docker linting
   - repo: https://github.com/hadolint/hadolint
-    rev: v2.13.1-beta
+    rev: v2.14.0
     hooks:
       - id: hadolint-docker
         args: ["--ignore", "DL3008", "--ignore", "DL3009", "--ignore", "DL3015"]
