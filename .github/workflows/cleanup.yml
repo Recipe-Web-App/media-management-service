@@ -1,0 +1,79 @@
+---
+name: Branch Cleanup
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    name: Delete Merged Branch
+    runs-on: ubuntu-latest
+    # Only run if PR was merged (not just closed)
+    if: github.event.pull_request.merged == true
+
+    steps:
+      - name: Check if branch should be deleted
+        id: should_delete
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branch = context.payload.pull_request.head.ref;
+            const protectedBranches = ['main', 'master', 'develop', 'staging', 'production'];
+            const isReleaseBranch = branch.startsWith('release/') || branch.startsWith('hotfix/');
+
+            // Don't delete protected branches or release branches
+            if (protectedBranches.includes(branch) || isReleaseBranch) {
+              core.setOutput('should_delete', 'false');
+              core.setOutput('reason', `Branch '${branch}' is protected or a release branch`);
+              return;
+            }
+
+            // Check if branch is from a fork
+            const headRepo = context.payload.pull_request.head.repo.full_name;
+            const baseRepo = context.payload.pull_request.base.repo.full_name;
+            const isFork = headRepo !== baseRepo;
+
+            if (isFork) {
+              core.setOutput('should_delete', 'false');
+              core.setOutput('reason', 'Branch is from a fork');
+              return;
+            }
+
+            core.setOutput('should_delete', 'true');
+            core.setOutput('branch', branch);
+
+      - name: Delete merged branch
+        if: steps.should_delete.outputs.should_delete == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branch = '${{ steps.should_delete.outputs.branch }}';
+
+            try {
+              await github.rest.git.deleteRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `heads/${branch}`
+              });
+
+              console.log(`✅ Successfully deleted branch: ${branch}`);
+
+              // Add a comment to the PR
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body: `🧹 Branch \`${branch}\` has been automatically deleted after merge.`
+              });
+            } catch (error) {
+              console.log(`⚠️ Could not delete branch ${branch}: ${error.message}`);
+            }
+
+      - name: Log skip reason
+        if: steps.should_delete.outputs.should_delete == 'false'
+        run: |
+          echo "⏭️ Skipping branch deletion: ${{ steps.should_delete.outputs.reason }}"

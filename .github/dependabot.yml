@@ -10,11 +10,15 @@ updates:
       time: "09:00"
       timezone: "US/Eastern"
     open-pull-requests-limit: 100
+    assignees:
+      - "jsamuelsen11"
     labels:
       - "dependencies"
       - "rust"
     commit-message:
-      prefix: "deps(cargo)"
+      prefix: "deps"
+      prefix-development: "deps-dev"
+      include: "scope"
     ignore:
       # Ignore major version updates for critical async runtime
       - dependency-name: "tokio"
@@ -26,37 +30,45 @@ updates:
       - dependency-name: "sqlx"
         update-types: ["version-update:semver-major"]
     groups:
-      tokio-ecosystem:
-        patterns:
-          - "tokio*"
-          - "tower*"
-          - "hyper*"
-      testing-dependencies:
-        patterns:
-          - "rstest"
-          - "mockall"
-          - "claims"
-          - "proptest"
-          - "fake"
-          - "tempfile"
+      # Group patch updates
+      cargo-patch-updates:
+        applies-to: version-updates
+        update-types:
+          - "patch"
+      # Group minor updates
+      cargo-minor-updates:
+        applies-to: version-updates
         update-types:
           - "minor"
-          - "patch"
+    # Major updates stay individual for careful review
+    # Increase version requirements (best practice for services)
+    versioning-strategy: increase
+    # Auto-rebase pull requests
+    rebase-strategy: auto
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
-    directory: "/.github/workflows"
+    directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
       time: "09:00"
       timezone: "US/Eastern"
     open-pull-requests-limit: 100
+    assignees:
+      - "jsamuelsen11"
     labels:
       - "dependencies"
       - "github-actions"
     commit-message:
-      prefix: "deps(actions)"
+      prefix: "ci"
+      include: "scope"
+    # Group all GitHub Actions updates together
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    rebase-strategy: auto
 
   # Docker dependencies
   - package-ecosystem: "docker"
@@ -67,8 +79,12 @@ updates:
       time: "09:00"
       timezone: "US/Eastern"
     open-pull-requests-limit: 100
+    assignees:
+      - "jsamuelsen11"
     labels:
       - "dependencies"
       - "docker"
     commit-message:
-      prefix: "deps(docker)"
+      prefix: "docker"
+      include: "scope"
+    rebase-strategy: auto

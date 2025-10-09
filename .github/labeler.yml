@@ -1,0 +1,96 @@
+---
+# PR Labeler Configuration
+# Automatically labels PRs based on changed files
+
+# Dependencies
+dependencies:
+  - Cargo.toml
+  - Cargo.lock
+
+# Documentation
+documentation:
+  - "**/*.md"
+  - docs/**/*
+  - CLAUDE.md
+  - README.md
+
+# GitHub configuration
+github:
+  - .github/**/*
+
+# Workflows
+github-actions:
+  - .github/workflows/**/*
+
+# Docker
+docker:
+  - Dockerfile
+  - docker-compose*.yml
+  - .dockerignore
+
+# Configuration
+configuration:
+  - "**/*.yml"
+  - "**/*.yaml"
+  - "**/*.json"
+  - "**/*.toml"
+  - .env.example
+  - deny.toml
+  - rustfmt.toml
+
+# Source code - Rust
+rust:
+  - "**/*.rs"
+  - src/**/*
+
+# Tests
+tests:
+  - tests/**/*
+  - src/**/tests.rs
+
+# Domain layer
+domain:
+  - src/domain/**/*
+
+# Application layer
+application:
+  - src/application/**/*
+
+# Infrastructure layer
+infrastructure:
+  - src/infrastructure/**/*
+
+# Presentation/API layer
+api:
+  - src/presentation/**/*
+
+# Database/Persistence
+database:
+  - src/infrastructure/persistence/**/*
+
+# Storage
+storage:
+  - src/infrastructure/storage/**/*
+
+# HTTP/Networking
+http:
+  - src/infrastructure/http/**/*
+  - src/presentation/handlers/**/*
+
+# Middleware
+middleware:
+  - src/presentation/middleware/**/*
+
+# Scripts
+scripts:
+  - scripts/**/*
+  - "**/*.sh"
+
+# Kubernetes
+kubernetes:
+  - k8s/**/*
+  - scripts/containerManagement/**/*
+
+# Pre-commit
+pre-commit:
+  - .pre-commit-config.yaml

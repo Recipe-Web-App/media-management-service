@@ -1,0 +1,162 @@
+---
+name: Performance Issue
+description: Report performance degradation or optimization opportunities
+title: "[Performance]: "
+labels: ["performance", "needs-triage"]
+assignees:
+  - jsamuelsen11
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a performance issue! Please provide detailed metrics and profiling
+        data to help us investigate and optimize.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Performance Issue Description
+      description: Describe the performance problem you're experiencing
+      placeholder: What operation is slow? When did you first notice this?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected Component
+      description: Which component has the performance issue?
+      options:
+        - File Upload
+        - File Download
+        - Image Processing
+        - Video Processing
+        - Database Queries
+        - Storage I/O
+        - API Response Times
+        - Pagination
+        - Health Checks
+        - Presigned URL Generation
+        - Overall Service
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Impact Severity
+      description: How severe is the performance impact?
+      options:
+        - Critical (Service unusable/timing out)
+        - High (Significant degradation)
+        - Medium (Noticeable slowdown)
+        - Low (Minor inefficiency)
+    validations:
+      required: true
+
+  - type: textarea
+    id: metrics
+    attributes:
+      label: Performance Metrics
+      description: Provide actual numbers
+      placeholder: |
+        - Current response time:
+        - Expected response time:
+        - Throughput (requests/sec):
+        - File processing time:
+        - Database query time:
+        - Memory usage:
+        - CPU usage:
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this performance issue?
+      placeholder: |
+        1. Upload file of size...
+        2. Request endpoint...
+        3. Measure response time...
+    validations:
+      required: true
+
+  - type: textarea
+    id: load
+    attributes:
+      label: Load Characteristics
+      description: What load conditions trigger this issue?
+      placeholder: |
+        - Concurrent uploads:
+        - File sizes:
+        - Request rate:
+        - Database size:
+        - Storage usage:
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Deployment environment details
+      value: |
+        - Service Version:
+        - Deployment: (Docker/Kubernetes/Local)
+        - Rust Version:
+        - PostgreSQL version:
+        - Hardware specs (CPU/RAM):
+        - Storage type (SSD/HDD/PVC):
+        - Network conditions:
+    validations:
+      required: true
+
+  - type: textarea
+    id: configuration
+    attributes:
+      label: Configuration
+      description: Relevant performance-related configuration
+      placeholder: |
+        MEDIA_SERVICE_MAX_FILE_SIZE=10485760
+        Database connection pool size:
+        Worker threads:
+        etc.
+
+  - type: textarea
+    id: profiling
+    attributes:
+      label: Profiling Data (Optional)
+      description: Include profiling output if available
+      placeholder: |
+        Flame graphs, perf output, cargo-flamegraph results, etc.
+      render: shell
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution (Optional)
+      description: If you have ideas for optimization
+      placeholder: Potential approaches to improve performance
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other relevant information
+      placeholder: Graphs, charts, comparisons with previous versions, etc.
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist
+      description: Please confirm the following
+      options:
+        - label: I have included actual performance metrics
+          required: true
+        - label: I have searched existing issues for similar performance reports
+          required: true
+        - label: I have tested on the latest version
+          required: false

@@ -1,0 +1,151 @@
+---
+name: Bug Report
+description: Report a bug or unexpected behavior in the media management service
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+assignees:
+  - jsamuelsen11
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the form below to help us
+        investigate and fix the issue.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is
+      placeholder: Describe the issue you're experiencing
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior
+      placeholder: |
+        1. Upload file with '...'
+        2. Send request to '...'
+        3. Observe error '...'
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What you expected to happen
+      placeholder: Describe what should have happened
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened
+      placeholder: Describe what actually happened
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which component is affected?
+      options:
+        - File Upload
+        - File Download
+        - Media Processing (Images)
+        - Media Processing (Videos)
+        - Presigned URLs
+        - Storage System
+        - Database (PostgreSQL)
+        - API Endpoints
+        - Health Checks
+        - Pagination
+        - Authentication/Authorization
+        - Middleware (CORS, Rate Limiting, etc.)
+        - Kubernetes Deployment
+        - Docker Container
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How severe is this bug?
+      options:
+        - Critical (Service is down/unusable)
+        - High (Major functionality broken)
+        - Medium (Functionality impaired)
+        - Low (Minor issue/inconvenience)
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs
+      description: Include relevant log output (please redact sensitive information)
+      render: shell
+      placeholder: Paste relevant logs here
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Information about your deployment environment
+      value: |
+        - Service Version:
+        - Rust Version:
+        - Deployment: (Docker/Kubernetes/Local)
+        - OS:
+        - PostgreSQL version:
+        - Storage type: (Filesystem/K8s PVC)
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: Relevant configuration (redact secrets!)
+      placeholder: |
+        MEDIA_SERVICE_STORAGE_BASE_PATH=/app/media
+        MEDIA_SERVICE_MAX_FILE_SIZE=10485760
+        etc.
+
+  - type: checkboxes
+    id: security
+    attributes:
+      label: Security Impact
+      description: Does this bug have security implications?
+      options:
+        - label: This bug may have security implications
+          required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, or information about the problem
+      placeholder: Any additional information that might help
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched existing issues to avoid duplicates
+          required: true
+        - label: I have included all relevant information
+          required: true
+        - label: I have redacted all sensitive information (secrets, tokens, passwords)
+          required: true

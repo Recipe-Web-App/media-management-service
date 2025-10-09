@@ -90,6 +90,12 @@ docker run -d \
   -e POSTGRES_SCHEMA=recipe_manager \
   -e MEDIA_MANAGEMENT_DB_USER=postgres \
   -e MEDIA_MANAGEMENT_DB_PASSWORD=password \
+  -e OAUTH2_SERVICE_ENABLED=true \
+  -e OAUTH2_CLIENT_ID=recipe-service-client \
+  -e OAUTH2_CLIENT_SECRET=your_oauth2_secret \
+  -e OAUTH2_SERVICE_BASE_URL=http://auth-service:8080/api/v1/auth \
+  -e JWT_SECRET=your_jwt_secret_at_least_32_characters \
+  -e OAUTH2_INTROSPECTION_ENABLED=false \
   -v $(pwd)/media:/app/media \
   media-management-service:latest
 ```
@@ -113,6 +119,14 @@ services:
       - POSTGRES_SCHEMA=recipe_manager
       - MEDIA_MANAGEMENT_DB_USER=postgres
       - MEDIA_MANAGEMENT_DB_PASSWORD=password
+      - OAUTH2_SERVICE_ENABLED=true
+      - OAUTH2_CLIENT_ID=recipe-service-client
+      - OAUTH2_CLIENT_SECRET=your_oauth2_secret
+      - OAUTH2_SERVICE_BASE_URL=http://auth-service:8080/api/v1/auth
+      - JWT_SECRET=your_jwt_secret_at_least_32_characters
+      - OAUTH2_INTROSPECTION_ENABLED=false
+      - OAUTH2_SERVICE_TO_SERVICE_ENABLED=true
+      - MEDIA_SERVICE_MIDDLEWARE_METRICS_ENABLED=true
     volumes:
       - ./media:/app/media
     depends_on:
@@ -173,6 +187,12 @@ docker run -d \
   -e POSTGRES_SCHEMA=recipe_manager \
   -e MEDIA_MANAGEMENT_DB_USER=app_user \
   -e MEDIA_MANAGEMENT_DB_PASSWORD=secure_password \
+  -e OAUTH2_SERVICE_ENABLED=true \
+  -e OAUTH2_CLIENT_ID=recipe-service-client \
+  -e OAUTH2_CLIENT_SECRET=production_oauth2_secret \
+  -e OAUTH2_SERVICE_BASE_URL=https://auth.example.com/api/v1/auth \
+  -e JWT_SECRET=production_jwt_secret_min_32_chars \
+  -e OAUTH2_INTROSPECTION_ENABLED=false \
   -e MEDIA_SERVICE_LOGGING_LEVEL=info \
   -e MEDIA_SERVICE_LOGGING_FORMAT=json \
   -v /var/lib/media-management:/app/media \
@@ -197,6 +217,13 @@ POSTGRES_SCHEMA=recipe_manager
 MEDIA_MANAGEMENT_DB_USER=username
 MEDIA_MANAGEMENT_DB_PASSWORD=password
 
+# OAuth2 Authentication (required)
+OAUTH2_SERVICE_ENABLED=true
+OAUTH2_CLIENT_ID=recipe-service-client
+OAUTH2_CLIENT_SECRET=your_oauth2_client_secret
+OAUTH2_SERVICE_BASE_URL=http://auth-service:8080/api/v1/auth
+JWT_SECRET=your_jwt_secret_at_least_32_characters_long
+
 # Runtime Mode (recommended)
 RUN_MODE=production
 ```
@@ -208,6 +235,14 @@ RUN_MODE=production
 MEDIA_SERVICE_SERVER_HOST=0.0.0.0
 MEDIA_SERVICE_SERVER_PORT=3000
 MEDIA_SERVICE_SERVER_MAX_UPLOAD_SIZE=104857600
+
+# OAuth2 Authentication Options
+OAUTH2_INTROSPECTION_ENABLED=false  # Use offline JWT validation (faster)
+OAUTH2_SERVICE_TO_SERVICE_ENABLED=true  # Enable service-to-service auth
+
+# Metrics Configuration
+MEDIA_SERVICE_MIDDLEWARE_METRICS_ENABLED=true
+MEDIA_SERVICE_MIDDLEWARE_METRICS_ENDPOINT_ENABLED=true
 
 # Storage Configuration
 MEDIA_SERVICE_STORAGE_BASE_PATH=/app/media

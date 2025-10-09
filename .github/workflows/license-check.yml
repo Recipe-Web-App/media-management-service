@@ -1,0 +1,108 @@
+---
+name: License Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+  schedule:
+    # Run monthly on the 1st at 6 AM UTC
+    - cron: "0 6 1 * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  license-check:
+    name: Check Dependency Licenses
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo registry and index
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install cargo-deny
+        run: cargo install cargo-deny
+
+      - name: Check licenses
+        id: check
+        run: |
+          # Run cargo-deny checks (uses deny.toml configuration)
+          cargo deny check licenses > license-check.txt 2>&1 || echo "violations=true" >> $GITHUB_OUTPUT
+
+          if grep -q "error" license-check.txt; then
+            echo "status=failed" >> $GITHUB_OUTPUT
+          else
+            echo "status=passed" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate license summary
+        run: |
+          echo "# Dependency License Summary" > license-summary.md
+          echo "" >> license-summary.md
+          echo "Generated: $(date)" >> license-summary.md
+          echo "" >> license-summary.md
+          echo "This project uses \`cargo-deny\` to enforce license compliance." >> license-summary.md
+          echo "" >> license-summary.md
+          echo "## Configuration" >> license-summary.md
+          echo "See \`deny.toml\` for allowed/denied licenses and exceptions." >> license-summary.md
+          echo "" >> license-summary.md
+          cargo deny list >> license-summary.md 2>/dev/null || true
+
+      - name: Upload license report
+        uses: actions/upload-artifact@v4
+        with:
+          name: license-report
+          path: |
+            license-summary.md
+            license-check.txt
+          retention-days: 90
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: licenses
+          message: |
+            ## 📜 License Compliance Check
+
+            **Status:** ${{ steps.check.outputs.status == 'passed' && '✅ Passed' || '❌ Failed' }}
+
+            ${{
+              steps.check.outputs.violations &&
+              '**⚠️ License violations found - see details in artifacts**' ||
+              '✅ All dependencies comply with license policy'
+            }}
+
+            **Configuration:** License policy enforced via `deny.toml`
+
+            For details, check the `license-report` artifact in this workflow run.
+
+      - name: Fail if violations found
+        if: steps.check.outputs.status == 'failed'
+        run: |
+          echo "❌ License violations found"
+          cat license-check.txt
+          exit 1

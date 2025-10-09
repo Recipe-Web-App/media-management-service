@@ -1,0 +1,79 @@
+---
+name: Stale Issues and PRs
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # Run daily at midnight UTC
+  workflow_dispatch: # Allow manual triggering
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    name: Mark Stale Issues and PRs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Mark stale issues and PRs
+        uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+          # Days before marking as stale
+          days-before-stale: 60
+          days-before-close: 14
+
+          # Stale issue settings
+          stale-issue-message: |
+            This issue has been automatically marked as stale because it has not had recent activity.
+            It will be closed in 14 days if no further activity occurs.
+
+            If this issue is still relevant, please:
+            - Add a comment to keep it open
+            - Remove the `stale` label
+            - Provide updates on the status
+
+            Thank you for your contributions!
+
+          stale-issue-label: "stale"
+          exempt-issue-labels: "pinned,security,critical,in-progress"
+
+          close-issue-message: |
+            This issue was automatically closed due to inactivity.
+
+            If you believe this issue should be reopened, please:
+            - Create a new issue with updated information
+            - Reference this issue in your new submission
+            - Explain why it should be reopened
+
+          # Stale PR settings
+          stale-pr-message: |
+            This pull request has been automatically marked as stale because it has not had recent activity.
+            It will be closed in 14 days if no further activity occurs.
+
+            If this PR is still relevant, please:
+            - Rebase on the latest main branch
+            - Address any review comments
+            - Remove the `stale` label
+            - Provide updates on the status
+
+            Thank you for your contributions!
+
+          stale-pr-label: "stale"
+          exempt-pr-labels: "pinned,security,work-in-progress,blocked"
+
+          close-pr-message: |
+            This pull request was automatically closed due to inactivity.
+
+            If you'd like to continue this work, please:
+            - Open a new PR with rebased changes
+            - Reference this PR in your new submission
+
+          # Don't mark as stale if there are recent comments
+          exempt-all-assignees: true
+          exempt-all-milestones: true
+
+          # Operation limits to prevent API rate limiting
+          operations-per-run: 100

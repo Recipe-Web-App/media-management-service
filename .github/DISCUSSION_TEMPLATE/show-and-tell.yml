@@ -1,0 +1,43 @@
+---
+labels: [show-and-tell]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Share how you're using the OAuth2 Auth Service! Your implementations might help others.
+
+  - type: textarea
+    attributes:
+      label: What Did You Build?
+      description: Describe your implementation or integration
+      placeholder: Tell us about your project...
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: How Are You Using the Auth Service?
+      description: How does the auth service fit into your architecture?
+      placeholder: |
+        - OAuth2 flows used
+        - Integration details
+        - Client types
+        - Deployment setup
+
+  - type: textarea
+    attributes:
+      label: Interesting Challenges or Solutions
+      description: Any interesting problems you solved or lessons learned?
+      placeholder: Share your experience...
+
+  - type: textarea
+    attributes:
+      label: Screenshots or Demo
+      description: Show us what you built!
+      placeholder: Links to screenshots, demos, repositories, etc.
+
+  - type: textarea
+    attributes:
+      label: Feedback for the Project
+      description: Any feedback or suggestions based on your experience?
+      placeholder: What worked well? What could be improved?
