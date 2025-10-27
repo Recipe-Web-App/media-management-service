@@ -60,7 +60,7 @@ jobs:
 
       - name: Upload link report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: link-check-report
           path: link-summary.md
