@@ -12,6 +12,8 @@ updates:
     open-pull-requests-limit: 100
     assignees:
       - "jsamuelsen11"
+    reviewers:
+      - "jsamuelsen11"
     labels:
       - "dependencies"
       - "rust"
@@ -57,6 +59,8 @@ updates:
     open-pull-requests-limit: 100
     assignees:
       - "jsamuelsen11"
+    reviewers:
+      - "jsamuelsen11"
     labels:
       - "dependencies"
       - "github-actions"
@@ -80,6 +84,8 @@ updates:
       timezone: "US/Eastern"
     open-pull-requests-limit: 100
     assignees:
+      - "jsamuelsen11"
+    reviewers:
       - "jsamuelsen11"
     labels:
       - "dependencies"
