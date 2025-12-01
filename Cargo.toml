@@ -20,7 +20,7 @@ tower = "0.5.2"
 tower-http = { version = "0.6.6", features = ["compression-br", "compression-gzip", "cors", "request-id", "trace", "timeout", "limit", "set-header", "validate-request"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["json", "env-filter"] }
-tracing-appender = "0.2.3"
+tracing-appender = "0.2.4"
 uuid = { version = "1.11.1", features = ["v4", "serde"] }
 validator = "0.20.0"
 jsonwebtoken = { version = "10.2.0", features = ["aws_lc_rs"] }
