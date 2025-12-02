@@ -99,7 +99,7 @@ pub fn create_app(config: &AppConfig, database: Option<&Database>) -> Router {
         .layer(axum::middleware::from_fn(global_error_handler))
         .layer(TraceLayer::new_for_http())
         .layer(CompressionLayer::new())
-        .layer(TimeoutLayer::new(Duration::from_secs(30)))
+        .layer(TimeoutLayer::with_status_code(StatusCode::REQUEST_TIMEOUT, Duration::from_secs(30)))
         .layer(create_cors_layer())
         .layer(DefaultBodyLimit::max(
             usize::try_from(config.server.max_upload_size).unwrap_or(100_000_000),
