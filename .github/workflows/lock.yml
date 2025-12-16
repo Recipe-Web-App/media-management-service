@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Lock closed issues
-        uses: dessant/lock-threads@v5
+        uses: dessant/lock-threads@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           issue-inactive-days: 90
@@ -31,7 +31,7 @@ jobs:
             Thank you for your contributions!
 
       - name: Lock merged pull requests
-        uses: dessant/lock-threads@v5
+        uses: dessant/lock-threads@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           pr-inactive-days: 60
@@ -44,7 +44,7 @@ jobs:
             Thank you for your contributions!
 
       - name: Lock closed unmerged pull requests
-        uses: dessant/lock-threads@v5
+        uses: dessant/lock-threads@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           pr-inactive-days: 60
