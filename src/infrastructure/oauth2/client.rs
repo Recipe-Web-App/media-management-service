@@ -12,7 +12,7 @@ use serde_json;
 use serde_urlencoded;
 use std::{sync::Arc, time::Duration};
 use tokio::time::sleep;
-use tracing::{debug, error, warn};
+use tracing::{debug, warn};
 
 /// `OAuth2` client for token introspection and client credentials flow
 #[derive(Clone)]
