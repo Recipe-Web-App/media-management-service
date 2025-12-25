@@ -270,7 +270,7 @@ The service is designed for **Kubernetes deployment** with:
 ./scripts/containerManagement/get-container-status.sh
 
 # Access service
-curl http://media-management.local/api/v1/media-management/health
+curl http://sous-chef-proxy.local/api/v1/media-management/health
 ```
 
 #### Container Management Scripts
