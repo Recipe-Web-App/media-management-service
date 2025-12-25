@@ -215,9 +215,9 @@ fi
 
 print_separator
 echo -e "${CYAN}🔗 Removing /etc/hosts entry...${NC}"
-if grep -q "sous-chef-proxy.local" /etc/hosts; then
-  sed -i "/sous-chef-proxy.local/d" /etc/hosts
-  print_status "ok" "Removed sous-chef-proxy.local from /etc/hosts"
+if grep -q "media-management.local" /etc/hosts; then
+  sed -i "/media-management.local/d" /etc/hosts
+  print_status "ok" "Removed media-management.local from /etc/hosts"
 else
   print_status "ok" "/etc/hosts entry was not found"
 fi
