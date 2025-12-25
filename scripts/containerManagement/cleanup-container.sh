@@ -92,9 +92,9 @@ kubectl delete service media-management-service -n "$NAMESPACE" --ignore-not-fou
 print_status "ok" "Service deletion completed"
 
 print_separator
-echo -e "${CYAN}📥 Deleting ingress...${NC}"
-kubectl delete ingress media-management-ingress -n "$NAMESPACE" --ignore-not-found
-print_status "ok" "Ingress deletion completed"
+echo -e "${CYAN}🌐 Deleting Gateway HTTPRoute...${NC}"
+kubectl delete httproute media-management-ingress-media-management-local -n "$NAMESPACE" --ignore-not-found
+print_status "ok" "Gateway HTTPRoute deletion completed"
 
 print_separator
 echo -e "${CYAN}🔒 Deleting network policy...${NC}"
@@ -215,9 +215,9 @@ fi
 
 print_separator
 echo -e "${CYAN}🔗 Removing /etc/hosts entry...${NC}"
-if grep -q "media-management.local" /etc/hosts; then
-  sed -i "/media-management.local/d" /etc/hosts
-  print_status "ok" "Removed media-management.local from /etc/hosts"
+if grep -q "sous-chef-proxy.local" /etc/hosts; then
+  sed -i "/sous-chef-proxy.local/d" /etc/hosts
+  print_status "ok" "Removed sous-chef-proxy.local from /etc/hosts"
 else
   print_status "ok" "/etc/hosts entry was not found"
 fi
