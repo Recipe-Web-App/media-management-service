@@ -75,7 +75,7 @@ jq --version       # JSON processing tool
 ./scripts/containerManagement/get-container-status.sh
 
 # Test the service
-curl http://media-management.local/api/v1/media-management/health
+curl http://sous-chef-proxy.local/api/v1/media-management/health
 ```
 
 ### Script Reference
@@ -255,7 +255,7 @@ RUN_MODE=production
 
 ### Ingress Configuration
 
-- **Host**: `media-management.local` (for local development)
+- **Host**: `sous-chef-proxy.local` (for local development)
 - **Path**: `/api/v1/media-management` (prefix-based routing)
 - **Backend**: media-management-service:3000
 

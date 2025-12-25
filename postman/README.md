@@ -12,7 +12,7 @@ This directory contains Postman collection and environment files for comprehensi
 ### Environment Files
 
 - **`Media-Management-Local.postman_environment.json`** - Local development environment (localhost:3000)
-- **`Media-Management-Development.postman_environment.json`** - Development environment (media-management.local)
+- **`Media-Management-Development.postman_environment.json`** - Development environment (sous-chef-proxy.local)
 - **`*-Private.postman_environment.json`** - Local-only files with real credentials (gitignored)
 
 ## 🚀 Quick Start
@@ -306,9 +306,9 @@ The collection includes comprehensive test scripts that:
 
 **Development Environment:**
 
-- API: `http://media-management.local/api/v1/media-management`
-- Metrics: `http://media-management.local/metrics`
-- Health: `http://media-management.local/api/v1/media-management/health`
+- API: `http://sous-chef-proxy.local/api/v1/media-management`
+- Metrics: `http://sous-chef-proxy.local/metrics`
+- Health: `http://sous-chef-proxy.local/api/v1/media-management/health`
 
 Switch between environments using the environment selector dropdown in Postman's top-right corner.
 

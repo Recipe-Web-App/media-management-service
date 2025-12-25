@@ -61,4 +61,4 @@ kubectl rollout status deployment/media-management-service -n "$NAMESPACE" --tim
 
 print_separator "="
 print_status "ok" "Media Management Service updated successfully"
-echo -e "${CYAN}🌍 Access at: http://media-management.local/api/v1/media-management/health${NC}"
+echo -e "${CYAN}🌍 Access at: http://sous-chef-proxy.local/api/v1/media-management/health${NC}"

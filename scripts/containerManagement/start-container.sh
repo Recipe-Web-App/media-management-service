@@ -55,4 +55,4 @@ kubectl wait --namespace="$NAMESPACE" \
 
 print_separator "="
 print_status "ok" "Media Management Service is now running"
-echo -e "${CYAN}🌍 Access at: http://media-management.local/api/v1/media-management/health${NC}"
+echo -e "${CYAN}🌍 Access at: http://sous-chef-proxy.local/api/v1/media-management/health${NC}"

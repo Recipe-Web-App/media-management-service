@@ -3,7 +3,7 @@
 ## Base URL
 
 - **Local Development**: `http://localhost:3000/api/v1/media-management`
-- **Kubernetes**: `http://media-management.local/api/v1/media-management`
+- **Kubernetes**: `http://sous-chef-proxy.local/api/v1/media-management`
 
 ## Overview
 
@@ -261,13 +261,13 @@ media_uploads_total{status="failed"} 2
 curl http://localhost:3000/metrics
 
 # Using Kubernetes service URL
-curl http://media-management.local/metrics
+curl http://sous-chef-proxy.local/metrics
 
 # Prometheus scrape configuration
 scrape_configs:
   - job_name: 'media-management-service'
     static_configs:
-      - targets: ['media-management.local:80']
+      - targets: ['sous-chef-proxy.local:80']
     metrics_path: '/metrics'
     scrape_interval: 15s
 ```
@@ -828,7 +828,7 @@ curl -X DELETE \
 # Using Kubernetes service URL
 curl -X DELETE \
   -H "Authorization: Bearer <your-jwt-token>" \
-  "http://media-management.local/api/v1/media-management/media/123"
+  "http://sous-chef-proxy.local/api/v1/media-management/media/123"
 
 # Verify deletion was successful (should return 404)
 curl -H "Authorization: Bearer <your-jwt-token>" \
@@ -899,7 +899,7 @@ curl -H "Authorization: Bearer <your-jwt-token>" \
 # Using Kubernetes service URL
 curl -H "Authorization: Bearer <your-jwt-token>" \
   -o downloaded_file.jpg \
-  "http://media-management.local/api/v1/media-management/media/123/download"
+  "http://sous-chef-proxy.local/api/v1/media-management/media/123/download"
 ```
 
 ---

@@ -353,19 +353,19 @@ fi
 print_separator
 echo ""
 echo -e "${CYAN}🌍 Access URLs:${NC}"
-echo "  Health Check: http://media-management.local/api/v1/media-management/health"
-echo "  Readiness Check: http://media-management.local/api/v1/media-management/ready"
+echo "  Health Check: http://sous-chef-proxy.local/api/v1/media-management/health"
+echo "  Readiness Check: http://sous-chef-proxy.local/api/v1/media-management/ready"
 
 print_separator
 echo ""
 echo -e "${CYAN}🔗 Connectivity Test:${NC}"
 if command_exists curl; then
     # Test health endpoint
-    if curl -s -f -m 5 http://media-management.local/api/v1/media-management/health >/dev/null 2>&1; then
+    if curl -s -f -m 5 http://sous-chef-proxy.local/api/v1/media-management/health >/dev/null 2>&1; then
         print_status "ok" "Health endpoint responding"
 
         # Get health response
-        HEALTH_RESPONSE=$(curl -s -m 5 http://media-management.local/api/v1/media-management/health 2>/dev/null || echo "")
+        HEALTH_RESPONSE=$(curl -s -m 5 http://sous-chef-proxy.local/api/v1/media-management/health 2>/dev/null || echo "")
         if [ -n "$HEALTH_RESPONSE" ]; then
             echo "   💓 Health: $(echo "$HEALTH_RESPONSE" | jq -r '.status' 2>/dev/null || echo "unknown")"
         fi
@@ -374,17 +374,17 @@ if command_exists curl; then
     fi
 
     # Test readiness endpoint
-    if curl -s -f -m 5 http://media-management.local/api/v1/media-management/ready >/dev/null 2>&1; then
+    if curl -s -f -m 5 http://sous-chef-proxy.local/api/v1/media-management/ready >/dev/null 2>&1; then
         print_status "ok" "Readiness endpoint responding"
     else
         print_status "warning" "Readiness endpoint not responding"
     fi
 
     # Check /etc/hosts entry
-    if grep -q "media-management.local" /etc/hosts 2>/dev/null; then
-        print_status "ok" "/etc/hosts entry exists for media-management.local"
+    if grep -q "sous-chef-proxy.local" /etc/hosts 2>/dev/null; then
+        print_status "ok" "/etc/hosts entry exists for sous-chef-proxy.local"
     else
-        print_status "warning" "/etc/hosts entry missing for media-management.local"
+        print_status "warning" "/etc/hosts entry missing for sous-chef-proxy.local"
         echo -e "   ${YELLOW}💡 Run the deploy script to add it automatically${NC}"
     fi
 else
@@ -402,7 +402,7 @@ POD_RUNNING=$(kubectl get pods -l app=media-management-service -n "$NAMESPACE" -
 
 # Check connectivity
 if [ "$POD_RUNNING" = "true" ]; then
-    ENDPOINT_ACCESSIBLE=$(curl -s -f -m 5 http://media-management.local/api/v1/media-management/health >/dev/null 2>&1 && echo "true" || echo "false")
+    ENDPOINT_ACCESSIBLE=$(curl -s -f -m 5 http://sous-chef-proxy.local/api/v1/media-management/health >/dev/null 2>&1 && echo "true" || echo "false")
 else
     ENDPOINT_ACCESSIBLE="false"
 fi

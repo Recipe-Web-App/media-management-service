@@ -28,9 +28,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 #### Kubernetes Access
 
-- **Service URL**: `http://media-management.local/api/v1/media-management/`
-- **Health Check**: `http://media-management.local/api/v1/media-management/health`
-- **Readiness Check**: `http://media-management.local/api/v1/media-management/ready`
+- **Service URL**: `http://sous-chef-proxy.local/api/v1/media-management/`
+- **Health Check**: `http://sous-chef-proxy.local/api/v1/media-management/health`
+- **Readiness Check**: `http://sous-chef-proxy.local/api/v1/media-management/ready`
 
 #### Health Check System
 
@@ -484,7 +484,7 @@ curl "http://localhost:3000/api/v1/media-management/media/?status=Complete&limit
 curl "http://localhost:3000/api/v1/media-management/media/?cursor=eyJpZCI6MTAwfQ==&limit=20&status=Complete"
 
 # Using the service URL in Kubernetes
-curl "http://media-management.local/api/v1/media-management/media/?limit=25"
+curl "http://sous-chef-proxy.local/api/v1/media-management/media/?limit=25"
 
 # With OAuth2 authentication (requires JWT token)
 curl -H "Authorization: Bearer <your-jwt-token>" \
@@ -552,7 +552,7 @@ Retrieves metadata for a specific media file by its ID.
 curl "http://localhost:3000/api/v1/media-management/media/123"
 
 # Using the service URL in Kubernetes
-curl "http://media-management.local/api/v1/media-management/media/123"
+curl "http://sous-chef-proxy.local/api/v1/media-management/media/123"
 ```
 
 #### DELETE `/media/{id}` - Delete Media
@@ -605,7 +605,7 @@ Returns an empty response body with status 204 No Content.
 curl -X DELETE "http://localhost:3000/api/v1/media-management/media/123"
 
 # Using the service URL in Kubernetes
-curl -X DELETE "http://media-management.local/api/v1/media-management/media/123"
+curl -X DELETE "http://sous-chef-proxy.local/api/v1/media-management/media/123"
 
 # Check if deletion was successful (should return 404)
 curl "http://localhost:3000/api/v1/media-management/media/123"
@@ -833,7 +833,7 @@ The project uses a comprehensive testing framework with the following structure:
 ./scripts/containerManagement/get-container-status.sh
 
 # Access the service
-curl http://media-management.local/api/v1/media-management/health
+curl http://sous-chef-proxy.local/api/v1/media-management/health
 ```
 
 ### Container Management Scripts

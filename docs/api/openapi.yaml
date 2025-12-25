@@ -17,7 +17,7 @@ info:
 servers:
   - url: http://localhost:3000/api/v1/media-management
     description: Local development server
-  - url: http://media-management.local/api/v1/media-management
+  - url: http://sous-chef-proxy.local/api/v1/media-management
     description: Kubernetes deployment
 
 tags:
