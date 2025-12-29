@@ -24,7 +24,7 @@ tracing-appender = "0.2.4"
 uuid = { version = "1.19.0", features = ["v4", "serde"] }
 validator = "0.20.0"
 jsonwebtoken = { version = "10.2.0", features = ["aws_lc_rs"] }
-axum-extra = { version = "0.12.2", features = ["typed-header"] }
+axum-extra = { version = "0.12.5", features = ["typed-header"] }
 metrics = "0.24.3"
 metrics-exporter-prometheus = "0.18.1"
 regex = "1.12.2"
