@@ -184,8 +184,8 @@ pre-commit run --all-files    # Run all quality checks manually
 ### Development Guides
 
 - **[CLAUDE.md](CLAUDE.md)** - Comprehensive development guidance for Claude Code
-- **[docs/development/](docs/development/)** - Setup and testing guides (planned)
-- **[docs/api/](docs/api/)** - API documentation (planned)
+- **[docs/development/](docs/development/)** - Environment setup and development workflow guides
+- **[docs/api/](docs/api/)** - Complete API documentation with endpoint specifications
 
 ## 🌐 API Endpoints
 
