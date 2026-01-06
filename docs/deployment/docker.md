@@ -16,7 +16,7 @@ The service uses a **multi-stage Docker build** optimized for:
 ### Multi-Stage Build Process
 
 ```dockerfile
-# Stage 1: Builder (rust:1.89-bookworm)
+# Stage 1: Builder (rust:1.92-bookworm)
 - Installs Rust toolchain and build dependencies
 - Compiles Rust application with optimizations
 - Produces static binary
@@ -47,7 +47,7 @@ docker build -t media-management-service:latest .
 docker build -t media-management-service:v1.0.0 .
 
 # Build with build args (if needed)
-docker build --build-arg RUST_VERSION=1.89 -t media-management-service:latest .
+docker build --build-arg RUST_VERSION=1.92 -t media-management-service:latest .
 ```
 
 ### Minikube Build (for Kubernetes)
@@ -390,10 +390,10 @@ docker build --progress=plain -t media-management-service:latest .
 
 ```bash
 # Check Rust version in container
-docker run --rm rust:1.89-bookworm rustc --version
+docker run --rm rust:1.92-bookworm rustc --version
 
 # Build with specific Rust version
-docker build --build-arg RUST_VERSION=1.89 -t media-management-service:latest .
+docker build --build-arg RUST_VERSION=1.92 -t media-management-service:latest .
 ```
 
 ### Runtime Issues
@@ -466,7 +466,7 @@ docker logs media-management | head -20
 
 ```dockerfile
 # Use specific version tags
-FROM rust:1.89-slim-bookworm
+FROM rust:1.92-slim-bookworm
 
 # Clean up in same layer
 RUN apt-get update && \

@@ -64,7 +64,7 @@ EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:3000/health || exit 1
+    CMD curl -f http://localhost:3000/api/v1/media-management/health || exit 1
 
 # Environment variables with defaults
 ENV RUST_LOG=info

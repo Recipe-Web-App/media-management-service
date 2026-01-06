@@ -52,7 +52,7 @@ jq --version       # JSON processing tool
 | **Secret**              | Database passwords          | Base64 encoded, limited access       |
 | **Deployment**          | Application pods            | Non-root user, read-only filesystem  |
 | **Service**             | Internal networking         | ClusterIP for internal access        |
-| **Ingress**             | External access             | Host-based routing, TLS ready        |
+| **HTTPRoute**           | External access             | Gateway API routing, TLS ready       |
 | **NetworkPolicy**       | Network security            | Restricts pod-to-pod communication   |
 | **PodDisruptionBudget** | High availability           | Ensures minimum replica availability |
 
@@ -111,7 +111,7 @@ curl http://sous-chef-proxy.local/api/v1/media-management/health
 - Prerequisites verification
 - Namespace and resource status
 - Pod health and logs
-- Service and ingress configuration
+- Service and HTTPRoute configuration
 - ConfigMap and secret details
 - Network policy and PDB status
 - Docker image information
@@ -166,7 +166,7 @@ curl http://sous-chef-proxy.local/api/v1/media-management/health
 **What it removes:**
 
 - Deployment and pods
-- Service and ingress
+- Service and HTTPRoute
 - ConfigMap and secrets
 - Network policy and PDB
 - Namespace (optional)
@@ -253,17 +253,18 @@ RUN_MODE=production
 - **Port**: 3000
 - **Target**: Container port 3000
 
-### Ingress Configuration
+### HTTPRoute Configuration (Gateway API)
 
-- **Host**: `sous-chef-proxy.local` (for local development)
+- **Hosts**: `sous-chef-proxy.local`, `media-management.local` (for local development)
 - **Path**: `/api/v1/media-management` (prefix-based routing)
 - **Backend**: media-management-service:3000
+- **Gateway**: Kong gateway in `kong` namespace
 
 ### Network Policies
 
 Restricts network traffic to:
 
-- **Ingress**: Only from ingress controller
+- **Ingress**: Only from Gateway API controller (Kong)
 - **Egress**:
   - Database service (PostgreSQL)
   - OAuth2 authentication service
@@ -346,8 +347,8 @@ kubectl get events -n media-management --sort-by='.lastTimestamp'
 # Verify service
 kubectl get svc -n media-management
 
-# Check ingress
-kubectl get ingress -n media-management
+# Check HTTPRoute (Gateway API)
+kubectl get httproute -n media-management
 
 # Test from inside cluster
 kubectl run debug --image=busybox --rm -it -- sh
