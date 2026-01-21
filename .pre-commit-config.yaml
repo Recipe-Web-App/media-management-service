@@ -1,27 +1,4 @@
 ---
-# pre-commit.ci configuration
-ci:
-  autofix_commit_msg: |
-    chore(pre-commit-ci): auto fixes from pre-commit hooks
-
-    for more information, see https://pre-commit.ci
-  autofix_prs: true
-  autoupdate_branch: ""
-  autoupdate_commit_msg: "chore(pre-commit-ci): pre-commit autoupdate"
-  autoupdate_schedule: weekly
-  skip:
-    # Local hooks requiring system binaries
-    - kube-score
-    - coverage-check
-
-    # Resource-intensive or manual hooks
-    - cargo-test
-    - cargo-deny
-
-    # Docker-dependent hooks
-    - hadolint-docker
-  submodules: false
-
 repos:
   # Standard file and format checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
