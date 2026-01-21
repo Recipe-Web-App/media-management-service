@@ -17,6 +17,9 @@
   "dependencyDashboardTitle": "Dependency Dashboard",
   "rebaseWhen": "conflicted",
   "platformAutomerge": true,
+  "pre-commit": {
+    "enabled": true
+  },
   "vulnerabilityAlerts": {
     "enabled": true,
     "labels": ["security"],
@@ -72,7 +75,7 @@
     {
       "description": "Disable major updates for axum",
       "matchManagers": ["cargo"],
-      "matchPackagePatterns": ["^axum"],
+      "matchPackageNames": ["/^axum/"],
       "matchUpdateTypes": ["major"],
       "enabled": false
     },
@@ -86,26 +89,26 @@
     {
       "description": "Group tokio ecosystem",
       "matchManagers": ["cargo"],
-      "matchPackagePatterns": ["^tokio"],
+      "matchPackageNames": ["/^tokio/"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "tokio-ecosystem"
     },
     {
       "description": "Group serde ecosystem",
       "matchManagers": ["cargo"],
-      "matchPackagePatterns": ["^serde"],
+      "matchPackageNames": ["/^serde/"],
       "groupName": "serde-ecosystem"
     },
     {
       "description": "Group tower ecosystem",
       "matchManagers": ["cargo"],
-      "matchPackagePatterns": ["^tower"],
+      "matchPackageNames": ["/^tower/"],
       "groupName": "tower-ecosystem"
     },
     {
       "description": "Group tracing ecosystem",
       "matchManagers": ["cargo"],
-      "matchPackagePatterns": ["^tracing"],
+      "matchPackageNames": ["/^tracing/"],
       "groupName": "tracing-ecosystem"
     },
     {
@@ -134,6 +137,32 @@
       "labels": ["dependencies", "docker"],
       "semanticCommitType": "deps",
       "semanticCommitScope": "docker"
+    },
+    {
+      "description": "Pre-commit hooks - base configuration",
+      "matchManagers": ["pre-commit"],
+      "labels": ["dependencies", "pre-commit"],
+      "semanticCommitType": "chore",
+      "semanticCommitScope": "pre-commit"
+    },
+    {
+      "description": "Pre-commit hooks - automerge minor/patch updates",
+      "matchManagers": ["pre-commit"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "groupName": "pre-commit-hooks",
+      "groupSlug": "pre-commit",
+      "automerge": true,
+      "automergeType": "pr",
+      "automergeStrategy": "squash"
+    },
+    {
+      "description": "Pre-commit hooks - major updates require dashboard approval",
+      "matchManagers": ["pre-commit"],
+      "matchUpdateTypes": ["major"],
+      "groupName": null,
+      "automerge": false,
+      "dependencyDashboardApproval": true,
+      "labels": ["dependencies", "pre-commit", "major-update"]
     }
   ],
   "lockFileMaintenance": {
