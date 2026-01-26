@@ -15,11 +15,11 @@ spec:
     - Ingress
     - Egress
   ingress:
-    # Allow ingress from ingress controller
+    # Allow ingress from Kong gateway
     - from:
         - namespaceSelector:
             matchLabels:
-              name: ingress-nginx
+              kubernetes.io/metadata.name: kong
       ports:
         - protocol: TCP
           port: 3000

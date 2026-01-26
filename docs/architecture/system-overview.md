@@ -11,7 +11,7 @@ handling with automatic optimization and content-addressable storage.
 ```text
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   Web Client    │───▶│  Load Balancer   │───▶│  Media Service  │
-│   (Browser)     │    │   (Ingress)      │    │   (Axum API)    │
+│   (Browser)     │    │  (Kong Gateway)  │    │   (Axum API)    │
 └─────────────────┘    └──────────────────┘    └────────┬────────┘
                                                          │
                                           ┌──────────────┼──────────────┐

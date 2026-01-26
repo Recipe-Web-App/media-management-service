@@ -181,23 +181,15 @@ jobs:
       - name: Get deployment URL
         id: get-url
         run: |
-          # Try to get ingress URL
+          # Get service URL (gateway routing handled externally)
           NS=${{ steps.namespace.outputs.namespace }}
-          INGRESS_URL=$(kubectl get ingress -n $NS \
-            -o jsonpath='{.items[0].spec.rules[0].host}' 2>/dev/null || echo "")
-
-          if [ -n "$INGRESS_URL" ]; then
-            echo "url=https://$INGRESS_URL" >> $GITHUB_OUTPUT
+          SERVICE_URL=$(kubectl get svc auth-service -n $NS \
+            -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' \
+            2>/dev/null || echo "")
+          if [ -n "$SERVICE_URL" ]; then
+            echo "url=http://$SERVICE_URL" >> $GITHUB_OUTPUT
           else
-            # Fallback to service
-            SERVICE_URL=$(kubectl get svc auth-service -n $NS \
-              -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' \
-              2>/dev/null || echo "")
-            if [ -n "$SERVICE_URL" ]; then
-              echo "url=http://$SERVICE_URL" >> $GITHUB_OUTPUT
-            else
-              echo "url=Service deployed to namespace ${{ steps.namespace.outputs.namespace }}" >> $GITHUB_OUTPUT
-            fi
+            echo "url=Service deployed to namespace ${{ steps.namespace.outputs.namespace }}" >> $GITHUB_OUTPUT
           fi
 
       - name: Display deployment info

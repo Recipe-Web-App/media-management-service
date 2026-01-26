@@ -224,6 +224,6 @@ Files are stored using **content-addressable storage**:
 
 ## Kubernetes Deployment
 
-Manifests in `k8s/` include deployment, service, ingress, PVC (50Gi), configmap/secret templates, network policy, and pod disruption budget.
+Manifests in `k8s/` include deployment, service, PVC (50Gi), configmap/secret templates, network policy, and pod disruption budget.
 
 Access via: `http://sous-chef-proxy.local/api/v1/media-management/`
