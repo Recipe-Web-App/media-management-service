@@ -186,12 +186,6 @@ print_separator "-"
 kubectl apply -f "${CONFIG_DIR}/poddisruptionbudget.yaml"
 
 print_separator "="
-echo -e "${CYAN}🌐 Applying Gateway HTTPRoute...${NC}"
-print_separator "-"
-
-kubectl apply -f "${CONFIG_DIR}/gateway-route.yaml"
-
-print_separator "="
 echo -e "${CYAN}⏳ Waiting for Media Management Service pod to be ready...${NC}"
 print_separator "-"
 
@@ -224,13 +218,11 @@ POD_NAME=$(kubectl get pods -n "$NAMESPACE" -l app=media-management-service -o j
 SERVICE_JSON=$(kubectl get svc media-management-service -n "$NAMESPACE" -o json)
 SERVICE_IP=$(echo "$SERVICE_JSON" | jq -r '.spec.clusterIP')
 SERVICE_PORT=$(echo "$SERVICE_JSON" | jq -r '.spec.ports[0].port')
-ROUTE_HOSTS=$(kubectl get httproute -n "$NAMESPACE" -o jsonpath='{.items[*].spec.hostnames[*]}' | tr ' ' '\n' | sort -u | paste -sd ',' -)
 
 print_separator "="
 echo -e "${CYAN}🛰️  Access info:${NC}"
 echo "  Pod: $POD_NAME"
 echo "  Service: $SERVICE_IP:$SERVICE_PORT"
-echo "  Gateway Hosts: $ROUTE_HOSTS"
 echo "  Health Check: http://sous-chef-proxy.local/api/v1/media-management/health"
 echo "  Readiness Check: http://sous-chef-proxy.local/api/v1/media-management/ready"
 print_separator "="
