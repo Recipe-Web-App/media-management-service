@@ -69,12 +69,12 @@ src/
 ├── main.rs              # Application entry point
 ├── lib.rs               # Library exports for testing
 ├── domain/              # Pure business logic (no external dependencies)
-│   ├── entities/        # Core entities (Media, User)
+│   ├── entities/        # Core entities (Media, User, Recipe IDs)
 │   ├── value_objects/   # Immutable types (ContentHash, MediaType, ProcessingStatus)
 │   ├── repositories/    # Repository traits (interfaces)
 │   └── services/        # Domain services
 ├── application/         # Use cases and orchestration
-│   ├── use_cases/       # Business workflows (upload, list, delete, etc.)
+│   ├── use_cases/       # Business workflows (upload, list, delete, download, etc.)
 │   ├── dto/             # Data transfer objects
 │   └── ports/           # Port traits for external systems
 ├── infrastructure/      # External adapters
@@ -147,13 +147,17 @@ For detailed API documentation and examples, see `docs/api/` or import the Postm
 ### Testing Patterns
 
 ```rust
-// Use MediaBuilder for test entities
+// Use MediaBuilder for test entities (tests/common/builders.rs)
+use crate::common::builders::MediaBuilder;
 let media = MediaBuilder::new().with_filename("test.jpg").build();
 
-// Use InMemoryMediaRepository for isolated repository tests
+// Use InMemoryMediaRepository for isolated repository tests (src/test_utils/mod.rs)
+use media_management_service::test_utils::mocks::InMemoryMediaRepository;
 let repo = InMemoryMediaRepository::new();
+let repo = repo.with_media(media);  // Builder pattern for test setup
 
-// Use TestApp for HTTP endpoint testing (requires a Router)
+// Use TestApp for HTTP endpoint testing (tests/common/test_app.rs)
+use crate::common::test_app::TestApp;
 let app = TestApp::new(router);
 let response = app.get("/health").await;
 response.assert_status(StatusCode::OK);
@@ -192,14 +196,14 @@ MEDIA_SERVICE_STORAGE_BASE_PATH=./media
 
 ## Code Quality Standards
 
-The codebase enforces strict quality:
+The codebase enforces strict quality via `lib.rs`:
 
 ```rust
 #![deny(clippy::all)]
 #![deny(clippy::pedantic)]
 #![deny(warnings)]
 
-// Allowed lints (configured in lib.rs)
+// Allowed lints
 #![allow(clippy::must_use_candidate)]
 #![allow(clippy::cast_possible_truncation)]
 #![allow(clippy::cast_sign_loss)]
@@ -210,7 +214,7 @@ The codebase enforces strict quality:
 
 - **Formatting**: 100 character line width (rustfmt.toml)
 - **Coverage**: 80% minimum (enforced by pre-commit)
-- **Pre-commit hooks**: Format, clippy, deny check, coverage
+- **Pre-commit hooks**: Format, clippy, deny check, coverage, gitleaks (secret scanning)
 - **Conventional commits**: Enforced via pre-commit hook (e.g., `feat:`, `fix:`, `chore:`)
 
 ## Storage Strategy
