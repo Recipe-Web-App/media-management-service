@@ -139,44 +139,6 @@ fi
 
 print_separator
 echo ""
-echo -e "${CYAN}📥 Ingress Status:${NC}"
-if kubectl get ingress media-management-ingress -n "$NAMESPACE" >/dev/null 2>&1; then
-    kubectl get ingress media-management-ingress -n "$NAMESPACE"
-    print_status "ok" "Ingress exists"
-    # Get ingress details
-    INGRESS_HOST=$(kubectl get ingress media-management-ingress -n "$NAMESPACE" -o jsonpath='{.spec.rules[0].host}' 2>/dev/null || echo "unknown")
-    INGRESS_IP=$(kubectl get ingress media-management-ingress -n "$NAMESPACE" -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "unknown")
-    INGRESS_CLASS=$(kubectl get ingress media-management-ingress -n "$NAMESPACE" -o jsonpath='{.spec.ingressClassName}' 2>/dev/null || echo "unknown")
-    echo "   🌍 Host: $INGRESS_HOST, IP: $INGRESS_IP, Class: $INGRESS_CLASS"
-
-    # Show detailed ingress rules
-    echo "   📋 Ingress rules:"
-    RULE_COUNT=$(kubectl get ingress media-management-ingress -n "$NAMESPACE" -o jsonpath='{.spec.rules}' | grep -o '"host"' | wc -l 2>/dev/null || echo "0")
-    if [ "$RULE_COUNT" -gt 0 ]; then
-        kubectl get ingress media-management-ingress -n "$NAMESPACE" -o jsonpath='{range .spec.rules[*]}      Rule: Host={.host}{"\n"}{end}' 2>/dev/null || echo "      Unable to parse rules"
-    else
-        echo "      Rule: Host=* (catch-all)"
-    fi
-
-    # Show path mappings
-    echo "   🛤️  Path mappings:"
-    kubectl get ingress media-management-ingress -n "$NAMESPACE" -o jsonpath='{range .spec.rules[*].http.paths[*]}      {.path} -> {.backend.service.name}:{.backend.service.port.number}{.backend.service.port.name} ({.pathType}){"\n"}{end}' 2>/dev/null || echo "      Unable to parse path mappings"
-
-    # Show TLS configuration if present
-    TLS_HOSTS=$(kubectl get ingress media-management-ingress -n "$NAMESPACE" -o jsonpath='{.spec.tls[*].hosts[*]}' 2>/dev/null || echo "")
-    if [ -n "$TLS_HOSTS" ]; then
-        echo "   🔒 TLS enabled for hosts: $TLS_HOSTS"
-        TLS_SECRET=$(kubectl get ingress media-management-ingress -n "$NAMESPACE" -o jsonpath='{.spec.tls[0].secretName}' 2>/dev/null || echo "unknown")
-        echo "   🔐 TLS secret: $TLS_SECRET"
-    else
-        echo "   ⚠️  TLS not configured"
-    fi
-else
-    print_status "error" "Ingress not found"
-fi
-
-print_separator
-echo ""
 echo -e "${CYAN}⚙️  ConfigMap Status:${NC}"
 if kubectl get configmap media-management-config -n "$NAMESPACE" >/dev/null 2>&1; then
     print_status "ok" "ConfigMap exists"
@@ -420,7 +382,7 @@ if [ "$POD_RUNNING" = "true" ] && [ "$ENDPOINT_ACCESSIBLE" = "true" ] && [ "$STO
 elif [ "$POD_RUNNING" = "true" ] && [ "$ENDPOINT_ACCESSIBLE" = "true" ] && [ "$STORAGE_HEALTHY" = "false" ]; then
     print_status "warning" "Service is running but storage may not persist (PVC not bound)"
 elif [ "$POD_RUNNING" = "true" ] && [ "$ENDPOINT_ACCESSIBLE" = "false" ]; then
-    print_status "warning" "Service is running but not accessible via ingress"
+    print_status "warning" "Service is running but not accessible via gateway"
 else
     print_status "error" "Service is not running properly"
 fi

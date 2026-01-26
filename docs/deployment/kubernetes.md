@@ -39,7 +39,6 @@ jq --version       # JSON processing tool
 
    ```bash
    minikube start
-   minikube addons enable ingress
    ```
 
 ## Deployment Architecture
