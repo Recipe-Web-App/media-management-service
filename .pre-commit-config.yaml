@@ -19,7 +19,7 @@ repos:
 
   # Rust-specific formatting, linting, and testing
   - repo: https://github.com/AndrejOrsula/pre-commit-cargo
-    rev: 0.4.0
+    rev: 0.5.0
     hooks:
       # Format code with rustfmt
       - id: cargo-fmt
@@ -41,7 +41,7 @@ repos:
 
   # Security, license, and dependency policy enforcement
   - repo: https://github.com/EmbarkStudios/cargo-deny
-    rev: 0.18.9
+    rev: 0.19.0
     hooks:
       - id: cargo-deny
         args: ["check"] # Run all checks: licenses, bans, advisories, sources
@@ -72,7 +72,7 @@ repos:
 
   # YAML linting
   - repo: https://github.com/adrienverge/yamllint
-    rev: v1.37.1
+    rev: v1.38.0
     hooks:
       - id: yamllint
         args: [-c=.yamllint.yml]
