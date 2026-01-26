@@ -16,11 +16,11 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
 
       - name: Calculate PR size
         id: size
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
             const pr = context.payload.pull_request;
@@ -51,7 +51,7 @@ jobs:
             core.setOutput('changes', changes);
 
       - name: Remove old size labels
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
             const labels = ['size/XS', 'size/S', 'size/M', 'size/L', 'size/XL'];
@@ -69,7 +69,7 @@ jobs:
             }
 
       - name: Add size label
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
             const labelName = '${{ steps.size.outputs.label }}';
@@ -104,7 +104,7 @@ jobs:
 
       - name: Comment on large PRs
         if: steps.size.outputs.size == 'XL'
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
             const changes = '${{ steps.size.outputs.changes }}';

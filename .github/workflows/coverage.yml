@@ -26,7 +26,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -35,7 +35,7 @@ jobs:
           components: llvm-tools-preview
 
       - name: Cache Cargo registry and index
-        uses: actions/cache@v5
+        uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5
         with:
           path: |
             ~/.cargo/registry/index/
@@ -71,7 +71,7 @@ jobs:
           fi
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5
         with:
           files: lcov.info
           flags: unittests
@@ -80,7 +80,7 @@ jobs:
 
       - name: Comment PR with coverage
         if: github.event_name == 'pull_request'
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405 # v2
         with:
           header: coverage
           message: |
