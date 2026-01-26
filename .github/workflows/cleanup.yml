@@ -18,7 +18,7 @@ jobs:
     steps:
       - name: Check if branch should be deleted
         id: should_delete
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
             const branch = context.payload.pull_request.head.ref;
@@ -48,7 +48,7 @@ jobs:
 
       - name: Delete merged branch
         if: steps.should_delete.outputs.should_delete == 'true'
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
             const branch = '${{ steps.should_delete.outputs.branch }}';

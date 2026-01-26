@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Mark stale issues and PRs
-        uses: actions/stale@v10
+        uses: actions/stale@997185467fa4f803885201cee163a9f38240193d # v10
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
