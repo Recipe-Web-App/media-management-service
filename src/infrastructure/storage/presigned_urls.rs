@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
 use rand::distr::Alphanumeric;
-use rand::Rng;
+use rand::RngExt;
 use sha2::Sha256;
 use std::time::Duration;
 
