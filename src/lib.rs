@@ -7,6 +7,7 @@
 #![allow(clippy::missing_panics_doc)]
 
 pub mod config;
+pub mod db;
 pub mod error;
 pub mod health;
 pub mod models;
