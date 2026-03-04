@@ -33,7 +33,8 @@ Install: `cargo install lefthook` or `brew install lefthook`, then `lefthook ins
 
 ## 2. Taskfile (go-task)
 
-Replaces manual cargo commands with a cross-platform task runner. Better UX than Makefiles, dependency tracking, and file-based caching.
+Replaces manual cargo commands with a cross-platform task runner. Better UX
+than Makefiles, dependency tracking, and file-based caching.
 
 ### `Taskfile.yml`
 
@@ -268,6 +269,7 @@ The `target/` directory easily reaches 5-10GB. Ensure it is:
 1. In `.gitignore` (already standard)
 2. Excluded from backup software (Time Machine, Backblaze, rsync)
 3. Optionally relocated via `CARGO_TARGET_DIR` env var to a non-backed-up location:
+
    ```bash
    # In .env.local or shell profile
    export CARGO_TARGET_DIR=/tmp/cargo-target/media-management-service
@@ -322,7 +324,7 @@ Replaces raw k8s YAML with composable bases and overlays. No templating language
 
 ### Directory Structure
 
-```
+```text
 k8s/
 ├── base/
 │   ├── kustomization.yaml

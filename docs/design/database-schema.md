@@ -116,7 +116,9 @@ ORDER BY media_id ASC
 LIMIT $N                         -- limit + 1 to detect has_next
 ```
 
-**Cursor encoding**: Base64-encoded `media_id` of the last item in the current page. Decode on next request to use as `WHERE media_id > cursor`. Fetch `limit + 1` rows; if more than `limit` returned, there is a next page.
+**Cursor encoding**: Base64-encoded `media_id` of the last item in the current
+page. Decode on next request to use as `WHERE media_id > cursor`. Fetch
+`limit + 1` rows; if more than `limit` returned, there is a next page.
 
 ### Update Media
 
@@ -205,7 +207,9 @@ pub struct Media {
 
 ### API Response DTO
 
-The `MediaDto` returned in API responses omits `media_path` (internal) and renames `user_id` to `uploaded_by`. It also includes a computed `download_url` field (signed URL, null if not complete).
+The `MediaDto` returned in API responses omits `media_path` (internal) and
+renames `user_id` to `uploaded_by`. It also includes a computed `download_url`
+field (signed URL, null if not complete).
 
 ```rust
 #[derive(Serialize)]
@@ -225,7 +229,7 @@ pub struct MediaDto {
 
 ### Processing Status Lifecycle
 
-```
+```text
 pending ──> processing ──> complete
                 │
                 └──────────> failed

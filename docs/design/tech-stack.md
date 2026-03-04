@@ -153,7 +153,8 @@ The observability stack uses `tracing` as the logging and spans facade (standard
 - **Traces**: Exported via OTLP to a configured collector endpoint
 - **Metrics**: Exported via OTLP to the collector (no `/metrics` endpoint; Prometheus scraping handled by the collector)
 - **Logs**: Stdout via `tracing-subscriber` (JSON in production, pretty in dev)
-- **Graceful degradation**: When `OTEL_EXPORTER_OTLP_ENDPOINT` is empty or unset, the OTEL layer is not installed. No errors, no overhead.
+- **Graceful degradation**: When `OTEL_EXPORTER_OTLP_ENDPOINT` is empty or
+  unset, the OTEL layer is not installed. No errors, no overhead.
 
 ```rust
 // Initialization sketch

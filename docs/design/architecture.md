@@ -1,10 +1,14 @@
 # Media Management Service - Architecture Design
 
-This document is the primary blueprint for the service rewrite. The old implementation had ~65k lines across 56 source files with broken auth, incomplete features, and over-engineered abstractions. The new service targets ~3k lines across 12 source files. Every feature works. No TODOs in production code.
+This document is the primary blueprint for the service rewrite. The old
+implementation had ~65k lines across 56 source files with broken auth,
+incomplete features, and over-engineered abstractions. The new service targets
+~3k lines across 12 source files. Every feature works. No TODOs in production
+code.
 
 ## Module Structure
 
-```
+```text
 src/
     main.rs          40 LOC   Entry point
     lib.rs           20 LOC   Module declarations, lint config
@@ -22,35 +26,78 @@ src/
 
 ### Module Responsibilities
 
-**`main.rs`** - Loads configuration, initializes tracing (stdout-only), connects to PostgreSQL, builds the app state, and starts the Axum server with graceful shutdown. Does nothing else.
+**`main.rs`** - Loads configuration, initializes tracing (stdout-only),
+connects to PostgreSQL, builds the app state, and starts the Axum server
+with graceful shutdown. Does nothing else.
 
-**`lib.rs`** - Declares all modules and sets crate-level lint configuration. Re-exports key types for integration tests. Contains no logic.
+**`lib.rs`** - Declares all modules and sets crate-level lint configuration.
+Re-exports key types for integration tests. Contains no logic.
 
-**`config.rs`** - Defines a flat `Config` struct and an `AuthModeConfig` enum. Loads values from environment variables via `dotenvy` and `std::env::var`. Supports `RUN_MODE=local` (loads `.env.local`) and `RUN_MODE=production` (env vars only). Does not use the `config` crate.
+**`config.rs`** - Defines a flat `Config` struct and an `AuthModeConfig` enum.
+Loads values from environment variables via `dotenvy` and `std::env::var`.
+Supports `RUN_MODE=local` (loads `.env.local`) and `RUN_MODE=production`
+(env vars only). Does not use the `config` crate.
 
-**`error.rs`** - Defines the `AppError` enum with 8 variants mapped to HTTP status codes. Implements `IntoResponse` for Axum integration. Implements `From<sqlx::Error>` and `From<std::io::Error>` for ergonomic `?` usage. Does not define domain-specific error types.
+**`error.rs`** - Defines the `AppError` enum with 8 variants mapped to HTTP
+status codes. Implements `IntoResponse` for Axum integration. Implements
+`From<sqlx::Error>` and `From<std::io::Error>` for ergonomic `?` usage.
+Does not define domain-specific error types.
 
-**`models.rs`** - Defines `Media` (DB row), `NewMedia` (insert input), `ContentHash` (validated 64-char hex), `ProcessingStatus` (enum), and all request/response DTOs. The key DTO is `MediaDto` which omits `media_path` (internal), renames `user_id` → `uploaded_by`, and includes a computed `download_url` (signed, null if not complete). Uses `serde` derive for serialization. Does not contain business logic beyond validation.
+**`models.rs`** - Defines `Media` (DB row), `NewMedia` (insert input),
+`ContentHash` (validated 64-char hex), `ProcessingStatus` (enum), and all
+request/response DTOs. The key DTO is `MediaDto` which omits `media_path`
+(internal), renames `user_id` to `uploaded_by`, and includes a computed
+`download_url` (signed, null if not complete). Uses `serde` derive for
+serialization. Does not contain business logic beyond validation.
 
-**`db.rs`** - Contains all SQL query functions as plain `async fn` taking `&PgPool`. Functions: `save_media`, `find_media_by_id`, `find_media_by_content_hash`, `find_media_by_user_paginated`, `update_media_status`, `delete_media`, `exists_by_content_hash`, `find_media_ids_by_recipe`, `find_media_ids_by_recipe_ingredient`, `find_media_ids_by_recipe_step`, `db_health_check`. No trait, no struct, no generics.
+**`db.rs`** - Contains all SQL query functions as plain `async fn` taking
+`&PgPool`. Functions: `save_media`, `find_media_by_id`,
+`find_media_by_content_hash`, `find_media_by_user_paginated`,
+`update_media_status`, `delete_media`, `exists_by_content_hash`,
+`find_media_ids_by_recipe`, `find_media_ids_by_recipe_ingredient`,
+`find_media_ids_by_recipe_step`, `db_health_check`. No trait, no struct,
+no generics.
 
-**`storage.rs`** - Defines a concrete `Storage` struct with content-addressable filesystem operations. Path format: `{base}/{ab}/{cd}/{ef}/{full_sha256_hash}`. Supports `store`, `retrieve`, `delete`, `exists`, and `health_check`. Uses atomic writes (temp file + rename). Cleans empty directories on delete. No trait.
+**`storage.rs`** - Defines a concrete `Storage` struct with
+content-addressable filesystem operations. Path format:
+`{base}/{ab}/{cd}/{ef}/{full_sha256_hash}`. Supports `store`, `retrieve`,
+`delete`, `exists`, and `health_check`. Uses atomic writes
+(temp file + rename). Cleans empty directories on delete. No trait.
 
-**`auth.rs`** - Defines `AuthMode` enum (OAuth2/Jwt/Dev), `AuthUser` struct (extracted identity), and the auth middleware function. OAuth2 mode POSTs to the auth-service introspection endpoint. JWT mode decodes tokens with `jsonwebtoken` (HS256). Dev mode reads `x-user-id` header. `AuthUser` is inserted into request extensions for handler access.
+**`auth.rs`** - Defines `AuthMode` enum (OAuth2/Jwt/Dev), `AuthUser` struct
+(extracted identity), and the auth middleware function. OAuth2 mode POSTs to
+the auth-service introspection endpoint. JWT mode decodes tokens with
+`jsonwebtoken` (HS256). Dev mode reads `x-user-id` header. `AuthUser` is
+inserted into request extensions for handler access.
 
-**`handlers.rs`** - All HTTP handler functions. Each takes `State<AppState>` and relevant extractors, calls db/storage functions directly, and returns `Result<impl IntoResponse, AppError>`. No use-case layer, no service layer. Handlers are the orchestration point. The download handler supports dual auth (Bearer token or signed URL query params). All handlers returning `MediaDto` include a signed `download_url` for completed media.
+**`handlers.rs`** - All HTTP handler functions. Each takes `State<AppState>`
+and relevant extractors, calls db/storage functions directly, and returns
+`Result<impl IntoResponse, AppError>`. No use-case layer, no service layer.
+Handlers are the orchestration point. The download handler supports dual auth
+(Bearer token or signed URL query params). All handlers returning `MediaDto`
+include a signed `download_url` for completed media.
 
-**`routes.rs`** - Builds the Axum `Router`, applies middleware layers (auth, request ID, CORS, compression, timeout, security headers, tracing), and nests route groups. Health routes and the download endpoint (dual auth) are outside the auth middleware. Media CRUD routes are inside.
+**`routes.rs`** - Builds the Axum `Router`, applies middleware layers (auth,
+request ID, CORS, compression, timeout, security headers, tracing), and nests
+route groups. Health routes and the download endpoint (dual auth) are outside
+the auth middleware. Media CRUD routes are inside.
 
-**`presigned.rs`** - HMAC-SHA256 URL signing and validation for both uploads and downloads. See [Signed URL Design](#signed-url-design) below for the full algorithm.
+**`presigned.rs`** - HMAC-SHA256 URL signing and validation for both uploads
+and downloads. See [Signed URL Design](#signed-url-design) below for the
+full algorithm.
 
-**`health.rs`** - Health check handler (returns healthy/degraded/unhealthy based on DB + storage checks). Readiness handler (binary ready/not_ready). Both run dependency checks with timeouts.
+**`health.rs`** - Health check handler (returns healthy/degraded/unhealthy
+based on DB + storage checks). Readiness handler (binary ready/not_ready).
+Both run dependency checks with timeouts.
 
 ## Key Design Decisions
 
 ### 1. No Repository Trait
 
-The current codebase has a `MediaRepository` trait with an associated error type, plus three implementations (`PostgreSqlMediaRepository`, `DisconnectedMediaRepository`, `ReconnectingMediaRepository`). Only one is ever used at runtime.
+The current codebase has a `MediaRepository` trait with an associated error
+type, plus three implementations (`PostgreSqlMediaRepository`,
+`DisconnectedMediaRepository`, `ReconnectingMediaRepository`). Only one is
+ever used at runtime.
 
 The rewrite uses concrete functions:
 
@@ -69,7 +116,10 @@ No trait, no generics, no associated types. One file of plain functions replaces
 
 ### 2. No Use Case Layer
 
-The current "use cases" are trivial wrappers. `GetMediaUseCase::execute(id)` calls `repository.find_by_id(id)` and converts the result. `DeleteMediaUseCase::execute(id)` calls `repository.delete(id)`. This layer adds indirection without value.
+The current "use cases" are trivial wrappers.
+`GetMediaUseCase::execute(id)` calls `repository.find_by_id(id)` and converts
+the result. `DeleteMediaUseCase::execute(id)` calls `repository.delete(id)`.
+This layer adds indirection without value.
 
 Handlers call DB functions directly:
 
@@ -171,7 +221,9 @@ No file rotation. No retention policies. Containers log to stdout; the platform 
 
 ### 7. Streaming Downloads with Cache Headers
 
-Never load entire files into memory. Supports dual auth (Bearer token or signed URL query params). Since storage is content-addressable, files are immutable and can be cached aggressively.
+Never load entire files into memory. Supports dual auth (Bearer token or
+signed URL query params). Since storage is content-addressable, files are
+immutable and can be cached aggressively.
 
 ```rust
 pub async fn download_media(...) -> Result<Response, AppError> {
@@ -270,7 +322,7 @@ flowchart TD
 
 ### Storage Layout
 
-```
+```text
 media/                          # MEDIA_SERVICE_STORAGE_BASE_PATH
 ├── ab/
 │   └── cd/
@@ -324,7 +376,9 @@ JSON error response format:
 }
 ```
 
-Error type values are lowercase snake_case: `bad_request`, `unauthorized`, `forbidden`, `not_found`, `conflict`, `payload_too_large`, `internal_error`, `service_unavailable`.
+Error type values are lowercase snake_case: `bad_request`, `unauthorized`,
+`forbidden`, `not_found`, `conflict`, `payload_too_large`, `internal_error`,
+`service_unavailable`.
 
 ## API Endpoints
 
@@ -350,11 +404,12 @@ All paths prefixed with `/api/v1/media-management`.
 
 ### Algorithm
 
-Both upload and download signed URLs use HMAC-SHA256. The signing secret is `JWT_SECRET` (reused from auth config, always present in all environments).
+Both upload and download signed URLs use HMAC-SHA256. The signing secret is
+`JWT_SECRET` (reused from auth config, always present in all environments).
 
 **Download URL signing:**
 
-```
+```text
 message  = "{media_id}:{expires_unix_timestamp}"
 signature = hex(HMAC-SHA256(JWT_SECRET, message))
 url      = "/media/{id}/download?signature={signature}&expires={expires}"
@@ -362,7 +417,7 @@ url      = "/media/{id}/download?signature={signature}&expires={expires}"
 
 **Upload URL signing (presigned uploads):**
 
-```
+```text
 message  = "{token}:{expires}:{size}:{content_type}"
 signature = hex(HMAC-SHA256(JWT_SECRET, message))
 url      = "/media/upload/{token}?signature={signature}&expires={expires}&size={size}&type={content_type}"
@@ -381,7 +436,10 @@ The `download_url` field is included in `MediaDto` responses (GET /media/{id}, G
 `GET /media/{id}/download` accepts two authentication modes:
 
 1. **Bearer token** (header): Standard auth middleware extracts `AuthUser`. Used for API-to-API calls.
-2. **Signed URL** (query params): `signature` + `expires` query params. Used for browser rendering (`<img src="...">`). The SSR backend fetches metadata with a Bearer token, then renders the signed `download_url` into HTML.
+2. **Signed URL** (query params): `signature` + `expires` query params.
+   Used for browser rendering (`<img src="...">`). The SSR backend fetches
+   metadata with a Bearer token, then renders the signed `download_url`
+   into HTML.
 
 Validation order:
 
@@ -395,7 +453,7 @@ Validation order:
 
 Content-addressable storage means the same hash always serves the same bytes. Download responses include:
 
-```
+```text
 Cache-Control: public, max-age=31536000, immutable
 ETag: "{content_hash}"
 ```
