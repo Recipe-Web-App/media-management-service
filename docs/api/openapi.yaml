@@ -3,12 +3,11 @@ openapi: 3.1.0
 info:
   title: Media Management Service API
   description: |
-    Production-ready media management service for the Recipe Web Application ecosystem.
+    Media management microservice for the Recipe Web Application ecosystem.
 
-    Handles file uploads, processing, storage, and retrieval with a focus on security,
-    performance, and scalability. Built with Rust using Clean/Hexagonal Architecture.
-
-  version: 0.1.0
+    Handles file uploads, content-addressable storage, and retrieval with
+    signed download URLs for browser-safe rendering.
+  version: 0.2.0
   contact:
     name: Recipe Web App Team
   license:
@@ -23,8 +22,6 @@ servers:
 tags:
   - name: health
     description: Health and readiness checks
-  - name: monitoring
-    description: Metrics and monitoring endpoints
   - name: media
     description: Media file operations
 
@@ -34,17 +31,17 @@ paths:
       tags: [health]
       summary: Health check
       description: |
-        Kubernetes liveness probe endpoint with comprehensive dependency validation.
+        Kubernetes liveness probe endpoint.
 
-        Supports three status levels:
+        Status levels:
         - **healthy**: All dependencies operational
-        - **degraded**: At least one dependency working (service partially functional)
+        - **degraded**: At least one dependency working
         - **unhealthy**: All critical dependencies failing
       operationId: healthCheck
-      security: [] # Override global auth requirement - health checks are public
+      security: []
       responses:
         "200":
-          description: Service is healthy or degraded (can still serve requests)
+          description: Service is healthy or degraded
           content:
             application/json:
               schema:
@@ -56,7 +53,7 @@ paths:
                     status: "healthy"
                     timestamp: "2025-01-15T10:30:00Z"
                     service: "media-management-service"
-                    version: "0.1.0"
+                    version: "0.2.0"
                     response_time_ms: 25
                     checks:
                       database:
@@ -72,7 +69,7 @@ paths:
                     status: "degraded"
                     timestamp: "2025-01-15T10:30:00Z"
                     service: "media-management-service"
-                    version: "0.1.0"
+                    version: "0.2.0"
                     response_time_ms: 2050
                     checks:
                       database:
@@ -83,7 +80,7 @@ paths:
                         response_time_ms: 3
                       overall: "degraded"
         "503":
-          description: Service is unhealthy (all dependencies failed)
+          description: Service is unhealthy
           content:
             application/json:
               schema:
@@ -92,7 +89,7 @@ paths:
                 status: "unhealthy"
                 timestamp: "2025-01-15T10:30:00Z"
                 service: "media-management-service"
-                version: "0.1.0"
+                version: "0.2.0"
                 response_time_ms: 4010
                 checks:
                   database:
@@ -108,18 +105,15 @@ paths:
       tags: [health]
       summary: Readiness check
       description: |
-        Kubernetes readiness probe endpoint with binary ready/not-ready status.
+        Kubernetes readiness probe endpoint. Binary ready/not-ready status.
 
-        Unlike health checks, readiness is binary:
-        - **ready**: ALL dependencies operational (service can accept traffic)
-        - **not_ready**: ANY dependency failed (service should not receive traffic)
-
-        Used by Kubernetes to control traffic routing to pods.
+        - **ready**: ALL dependencies operational
+        - **not_ready**: ANY dependency failed
       operationId: readinessCheck
-      security: [] # Override global auth requirement - readiness checks are public
+      security: []
       responses:
         "200":
-          description: Service is ready to accept traffic (all dependencies operational)
+          description: Service is ready to accept traffic
           content:
             application/json:
               schema:
@@ -128,7 +122,7 @@ paths:
                 status: "ready"
                 timestamp: "2025-01-15T10:30:00Z"
                 service: "media-management-service"
-                version: "0.1.0"
+                version: "0.2.0"
                 response_time_ms: 25
                 checks:
                   database:
@@ -139,7 +133,7 @@ paths:
                     response_time_ms: 3
                   overall: "ready"
         "503":
-          description: Service is not ready (any dependency failed)
+          description: Service is not ready
           content:
             application/json:
               schema:
@@ -148,7 +142,7 @@ paths:
                 status: "not_ready"
                 timestamp: "2025-01-15T10:30:00Z"
                 service: "media-management-service"
-                version: "0.1.0"
+                version: "0.2.0"
                 response_time_ms: 2010
                 checks:
                   database:
@@ -159,59 +153,14 @@ paths:
                     response_time_ms: 3
                   overall: "not_ready"
 
-  /metrics:
-    get:
-      tags: [monitoring]
-      summary: Get Prometheus metrics
-      description: |
-        Provides Prometheus-compatible metrics for monitoring and observability.
-
-        Returns metrics in Prometheus text format including HTTP request metrics,
-        business metrics, system metrics, and error metrics.
-      operationId: getMetrics
-      responses:
-        "200":
-          description: Metrics data in Prometheus format
-          content:
-            text/plain; version=0.0.4; charset=utf-8:
-              schema:
-                type: string
-                description: Prometheus metrics in text format
-                example: |
-                  # HELP http_requests_total Total number of HTTP requests
-                  # TYPE http_requests_total counter
-                  http_requests_total{method="GET",route="/health",status="200"} 42
-
-                  # HELP http_request_duration_seconds HTTP request duration in seconds
-                  # TYPE http_request_duration_seconds histogram
-                  http_request_duration_seconds_bucket{method="GET",route="/health",status="200",le="0.1"} 40
-                  http_request_duration_seconds_bucket{method="GET",route="/health",status="200",le="0.5"} 42
-                  http_request_duration_seconds_sum{method="GET",route="/health",status="200"} 1.23
-                  http_request_duration_seconds_count{method="GET",route="/health",status="200"} 42
-
-                  # HELP media_uploads_total Total number of media uploads
-                  # TYPE media_uploads_total counter
-                  media_uploads_total{status="success"} 15
-                  media_uploads_total{status="failed"} 2
-        "404":
-          description: Metrics endpoint is disabled in configuration
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                error: "Not Found"
-                message: "Endpoint not found"
-
   /media:
     post:
       tags: [media]
       summary: Upload media file
       description: |
-        Upload a new media file to the system with automatic content-addressable storage and deduplication.
+        Upload a media file with automatic content-addressable storage and deduplication.
       operationId: uploadMedia
       requestBody:
-        description: Media file upload request
         required: true
         content:
           multipart/form-data:
@@ -235,12 +184,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UploadMediaResponse"
-              example:
-                media_id: 123
-                content_hash: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
-                processing_status: "Pending"
-                upload_url: null
+                $ref: "#/components/schemas/MediaDto"
         "400":
           description: Bad request - invalid file or parameters
           content:
@@ -254,33 +198,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "401":
-          description: Unauthorized - Invalid or missing JWT token
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                error: "Unauthorized"
-                message: "Invalid or missing authentication token"
+          $ref: "#/components/responses/Unauthorized"
 
     get:
       tags: [media]
       summary: List media files
       description: |
-        Retrieve a list of media files with efficient cursor-based pagination and optional filtering.
+        Retrieve media files with cursor-based pagination and optional filtering.
+        Returns only media owned by the authenticated user unless admin scoped.
       operationId: listMedia
       parameters:
         - name: cursor
           in: query
-          description: Base64-encoded cursor for pagination navigation
-          required: false
+          description: Base64-encoded cursor for pagination
           schema:
             type: string
             example: "eyJpZCI6MTI0fQ=="
         - name: limit
           in: query
-          description: Maximum number of items to return (default 50, max 100, min 1)
-          required: false
+          description: Maximum number of items to return
           schema:
             type: integer
             minimum: 1
@@ -289,10 +225,14 @@ paths:
         - name: status
           in: query
           description: Filter by processing status
-          required: false
           schema:
             type: string
-            enum: [Pending, Processing, Complete, Failed]
+            enum: [pending, processing, complete, failed]
+        - name: uploaded_by
+          in: query
+          description: Filter by user ID (defaults to authenticated user)
+          schema:
+            type: string
       responses:
         "200":
           description: Paginated list of media files
@@ -306,11 +246,12 @@ paths:
                     content_hash: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
                     original_filename: "example-image.jpg"
                     media_type: "image/jpeg"
-                    media_path: "ab/cd/ef/abcdef123456"
                     file_size: 1048576
-                    processing_status: "Complete"
+                    processing_status: "complete"
+                    uploaded_by: "user-abc-123"
                     uploaded_at: "2025-01-15T10:30:00Z"
                     updated_at: "2025-01-15T10:30:00Z"
+                    download_url: "/media/123/download?signature=abc123&expires=1709510400"
                 pagination:
                   next_cursor: "eyJpZCI6MTI0fQ=="
                   prev_cursor: null
@@ -324,29 +265,17 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "401":
-          description: Unauthorized - Invalid or missing JWT token
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                error: "Unauthorized"
-                message: "Invalid or missing authentication token"
+          $ref: "#/components/responses/Unauthorized"
 
   /media/{id}:
     get:
       tags: [media]
       summary: Get media by ID
       description: |
-        Retrieve detailed information about a specific media file.
+        Retrieve metadata for a specific media file, including a signed download URL.
       operationId: getMediaById
       parameters:
-        - name: id
-          in: path
-          description: The unique identifier of the media file
-          required: true
-          schema:
-            $ref: "#/components/schemas/MediaId"
+        - $ref: "#/components/parameters/MediaId"
       responses:
         "200":
           description: Media information retrieved successfully
@@ -359,94 +288,88 @@ paths:
                 content_hash: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
                 original_filename: "example.jpg"
                 media_type: "image/jpeg"
-                media_path: "ab/cd/ef/abcdef123456"
                 file_size: 1048576
-                processing_status: "Complete"
+                processing_status: "complete"
+                uploaded_by: "user-abc-123"
                 uploaded_at: "2025-01-15T10:30:00Z"
                 updated_at: "2025-01-15T10:30:00Z"
+                download_url: "/media/123/download?signature=abc123&expires=1709510400"
         "401":
-          description: Unauthorized - Invalid or missing JWT token
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                error: "Unauthorized"
-                message: "Invalid or missing authentication token"
+          $ref: "#/components/responses/Unauthorized"
         "404":
-          description: Media not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                error: "Not Found"
-                message: "Media with ID 123"
+          $ref: "#/components/responses/NotFound"
 
     delete:
       tags: [media]
       summary: Delete media file
       description: |
-        Permanently delete a media file and its associated database record.
-
-        This operation removes both the file from storage and the metadata from the database.
-        The deletion is irreversible.
+        Permanently delete a media file and its database record. Irreversible.
       operationId: deleteMedia
       parameters:
-        - name: id
-          in: path
-          description: The unique identifier of the media file to delete
-          required: true
-          schema:
-            $ref: "#/components/schemas/MediaId"
+        - $ref: "#/components/parameters/MediaId"
       responses:
         "204":
           description: Media file successfully deleted
         "401":
-          description: Unauthorized - Invalid or missing JWT token
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                error: "Unauthorized"
-                message: "Invalid or missing authentication token"
+          $ref: "#/components/responses/Unauthorized"
         "404":
-          description: Media not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                error: "Not Found"
-                message: "Media with ID 123"
+          $ref: "#/components/responses/NotFound"
         "500":
-          description: Internal server error during deletion
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                error: "Internal Server Error"
-                message: "Failed to delete media file"
+          $ref: "#/components/responses/InternalServerError"
 
   /media/{id}/download:
     get:
       tags: [media]
       summary: Download media file
       description: |
-        Download the actual media file binary data.
+        Download the media file binary. Supports two auth modes:
+
+        - **Bearer token**: Standard API authentication via header
+        - **Signed URL**: Query params `signature` + `expires` for browser rendering
+
+        Responses include aggressive cache headers since content-addressable
+        storage guarantees immutability (same hash = same content forever).
       operationId: downloadMedia
       parameters:
-        - name: id
-          in: path
-          description: The unique identifier of the media file
-          required: true
+        - $ref: "#/components/parameters/MediaId"
+        - name: signature
+          in: query
+          description: HMAC-SHA256 signature for signed URL access
           schema:
-            $ref: "#/components/schemas/MediaId"
+            type: string
+            pattern: "^[a-f0-9]{64}$"
+        - name: expires
+          in: query
+          description: Unix timestamp for URL expiration
+          schema:
+            type: integer
+            format: int64
+      security:
+        - BearerAuth: []
+        - SignedUrl: []
       responses:
         "200":
           description: Media file binary data
+          headers:
+            Content-Disposition:
+              description: Attachment with original filename
+              schema:
+                type: string
+                example: 'attachment; filename="example.jpg"'
+            Content-Length:
+              description: File size in bytes
+              schema:
+                type: integer
+            Cache-Control:
+              description: Aggressive caching for immutable content
+              schema:
+                type: string
+                example: "public, max-age=31536000, immutable"
+            ETag:
+              description: Content hash as entity tag
+              schema:
+                type: string
+                example: '"abcdef1234567890..."'
           content:
             image/jpeg:
               schema:
@@ -468,49 +391,28 @@ paths:
               schema:
                 type: string
                 format: binary
-          headers:
-            Content-Disposition:
-              description: Attachment with original filename
-              schema:
-                type: string
-                example: 'attachment; filename="example.jpg"'
-            Content-Length:
-              description: Size of the file in bytes
-              schema:
-                type: integer
         "401":
-          description: Unauthorized - Invalid or missing JWT token
+          description: Missing or invalid authentication (no Bearer token and no valid signature)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              example:
-                error: "Unauthorized"
-                message: "Invalid or missing authentication token"
         "404":
-          description: Media not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+          $ref: "#/components/responses/NotFound"
 
   /media/upload-request:
     post:
       tags: [media]
-      summary: Initiate presigned upload session
+      summary: Initiate presigned upload
       description: |
-        Creates a presigned upload session for secure, UI-friendly file uploads with progress tracking.
+        Creates a presigned upload session for UI-friendly file uploads.
 
-        **Features:**
-        - HMAC-SHA256 signed URLs for security
-        - 15-minute expiration by default
+        - HMAC-SHA256 signed URLs
+        - 15-minute expiration
         - File size and content type validation
         - Dangerous file extension filtering
-        - Deduplication support
-
       operationId: initiateUpload
       requestBody:
-        description: Upload session initiation request
         required: true
         content:
           application/json:
@@ -522,18 +424,16 @@ paths:
               file_size: 1048576
       responses:
         "200":
-          description: Upload session created successfully
+          description: Upload session created
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/InitiateUploadResponse"
               example:
                 media_id: 123
-                upload_url: >
-                  http://localhost:3000/api/v1/media-management/media/upload/upload_abc123?signature=def456&expires=1704067200&size=1048576&type=image%2Fjpeg
-                upload_token: "upload_abc123"
+                upload_url: "/media/upload/upload_abc123?signature=def456&expires=1704067200&size=1048576&type=image%2Fjpeg"
+                upload_token: "upload_aBcDeFgHiJkLmNoPqRsTuVwXyZ012345"
                 expires_at: "2024-01-01T12:00:00Z"
-                status: "Pending"
         "400":
           description: Invalid request (file too large, dangerous extension, etc.)
           content:
@@ -544,115 +444,71 @@ paths:
                 file_too_large:
                   summary: File size exceeds limit
                   value:
-                    error: "Bad Request"
+                    error: "bad_request"
                     message: "File size 52428800 bytes exceeds maximum allowed size of 50000000 bytes"
                 dangerous_extension:
                   summary: Dangerous file extension
                   value:
-                    error: "Bad Request"
+                    error: "bad_request"
                     message: "File type not allowed: malware.exe"
-                invalid_content_type:
-                  summary: Invalid content type format
-                  value:
-                    error: "Bad Request"
-                    message: "Content type format is invalid"
         "401":
-          description: Unauthorized - Invalid or missing JWT token
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                error: "Unauthorized"
-                message: "Invalid or missing authentication token"
+          $ref: "#/components/responses/Unauthorized"
 
   /media/upload/{token}:
     put:
       tags: [media]
-      summary: Upload file to presigned URL
+      summary: Upload file via presigned URL
       description: |
-        Uploads the actual file content using the presigned URL from upload initiation.
+        Upload file content using the presigned URL from upload initiation.
 
-        **Security:**
-        - Validates HMAC signature for tampering protection
-        - Checks URL expiration timestamp
-        - Validates file size matches expectation
-        - Content type verification
-
+        Validates HMAC signature, expiration, file size, and content type.
       operationId: uploadFile
+      security: []
       parameters:
         - name: token
           in: path
-          description: Upload token from initiation response
           required: true
           schema:
             type: string
             pattern: "^upload_[a-zA-Z0-9]{32}$"
-            example: "upload_abc123def456"
         - name: signature
           in: query
-          description: HMAC signature for security validation
           required: true
           schema:
             type: string
             pattern: "^[a-f0-9]{64}$"
-            example: "def456789abc123"
         - name: expires
           in: query
-          description: Unix timestamp for URL expiration
           required: true
           schema:
             type: integer
             format: int64
-            example: 1704067200
         - name: size
           in: query
-          description: Expected file size in bytes
           required: true
           schema:
             type: integer
             format: int64
             minimum: 1
-            example: 1048576
         - name: type
           in: query
-          description: URL-encoded content type
           required: true
           schema:
             type: string
-            example: "image%2Fjpeg"
       requestBody:
-        description: Raw file data
         required: true
         content:
-          image/jpeg:
-            schema:
-              type: string
-              format: binary
-          image/png:
-            schema:
-              type: string
-              format: binary
-          image/webp:
-            schema:
-              type: string
-              format: binary
-          video/mp4:
+          application/octet-stream:
             schema:
               type: string
               format: binary
       responses:
         "200":
-          description: File uploaded and processing started
+          description: File uploaded successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UploadMediaResponse"
-              example:
-                media_id: 123
-                content_hash: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
-                processing_status: "Processing"
-                upload_url: null
+                $ref: "#/components/schemas/MediaDto"
         "400":
           description: Invalid signature, expired URL, or file size mismatch
           content:
@@ -663,12 +519,12 @@ paths:
                 expired_url:
                   summary: Upload URL has expired
                   value:
-                    error: "Bad Request"
-                    message: "Upload URL has expired at 2024-01-01T11:00:00Z"
+                    error: "bad_request"
+                    message: "Upload URL has expired"
                 size_mismatch:
-                  summary: File size doesn't match expectation
+                  summary: File size mismatch
                   value:
-                    error: "Bad Request"
+                    error: "bad_request"
                     message: "File size mismatch: expected 1048576 bytes, got 1024000 bytes"
         "401":
           description: Invalid or expired signature
@@ -676,283 +532,213 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              example:
-                error: "Unauthorized"
-                message: "Invalid upload signature"
 
   /media/{id}/status:
     get:
       tags: [media]
-      summary: Get upload/processing status
+      summary: Get processing status
       description: |
-        Retrieves the current status of a media upload, including processing progress and any error information.
-
-        **Use Cases:**
-        - Poll upload progress after initiating presigned upload
-        - Check processing status after file upload
-        - Get error details if processing failed
-        - Retrieve download URL when processing complete
-
+        Check the processing status of a media upload.
       operationId: getUploadStatus
       parameters:
         - $ref: "#/components/parameters/MediaId"
       responses:
         "200":
-          description: Status retrieved successfully
+          description: Status retrieved
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/UploadStatusResponse"
               examples:
                 pending:
-                  summary: Upload session created, awaiting file
+                  summary: Awaiting file upload
                   value:
                     media_id: 123
-                    status: "Pending"
-                    progress: null
-                    error_message: null
+                    status: "pending"
                     download_url: null
-                    processing_time_ms: null
                     uploaded_at: null
                     completed_at: null
-                processing:
-                  summary: File uploaded, currently processing
-                  value:
-                    media_id: 123
-                    status: "Processing"
-                    progress: 65
-                    error_message: null
-                    download_url: null
-                    processing_time_ms: null
-                    uploaded_at: "2024-01-01T12:00:00Z"
-                    completed_at: null
                 complete:
-                  summary: Processing finished successfully
+                  summary: Processing finished
                   value:
                     media_id: 123
-                    status: "Complete"
-                    progress: 100
-                    error_message: null
-                    download_url: "http://localhost:3000/api/v1/media-management/media/123/download"
-                    processing_time_ms: 2500
+                    status: "complete"
+                    download_url: "/media/123/download?signature=abc123&expires=1709510400"
                     uploaded_at: "2024-01-01T12:00:00Z"
                     completed_at: "2024-01-01T12:00:02Z"
                 failed:
-                  summary: Processing failed with error
+                  summary: Processing failed
                   value:
                     media_id: 123
-                    status: "Failed"
-                    progress: null
+                    status: "failed"
                     error_message: "Corrupted file header detected"
                     download_url: null
-                    processing_time_ms: 1200
                     uploaded_at: "2024-01-01T12:00:00Z"
                     completed_at: "2024-01-01T12:00:01Z"
         "401":
-          description: Unauthorized - Invalid or missing JWT token
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                error: "Unauthorized"
-                message: "Invalid or missing authentication token"
+          $ref: "#/components/responses/Unauthorized"
         "404":
-          description: Media not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                error: "Not Found"
-                message: "Media with ID 123"
+          $ref: "#/components/responses/NotFound"
 
   /media/recipe/{recipe_id}:
     get:
       tags: [media]
-      summary: Get media IDs by recipe
+      summary: Get media for a recipe
       description: |
-        Retrieve media IDs associated with a specific recipe.
-
-        Returns an array of media IDs that are linked to the recipe.
+        Retrieve media associated with a recipe.
       operationId: getMediaByRecipe
       parameters:
         - name: recipe_id
           in: path
-          description: The unique identifier of the recipe
           required: true
           schema:
             type: integer
             format: int64
-            example: 123
       responses:
         "200":
-          description: List of media IDs for the recipe
+          description: Media for the recipe
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/MediaId"
-              example: [1, 2, 3]
+                type: object
+                required:
+                  - media_ids
+                properties:
+                  media_ids:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MediaId"
+              example:
+                media_ids: [1, 2, 3]
         "400":
           description: Invalid recipe ID
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /media/recipe/{recipe_id}/ingredient/{ingredient_id}:
     get:
       tags: [media]
-      summary: Get media IDs by recipe ingredient
+      summary: Get media for a recipe ingredient
       description: |
-        Retrieve media IDs associated with a specific ingredient in a recipe.
-
-        Returns an array of media IDs that are linked to the ingredient.
+        Retrieve media associated with a specific ingredient in a recipe.
       operationId: getMediaByIngredient
       parameters:
         - name: recipe_id
           in: path
-          description: The unique identifier of the recipe
           required: true
           schema:
             type: integer
             format: int64
-            example: 123
         - name: ingredient_id
           in: path
-          description: The unique identifier of the ingredient
           required: true
           schema:
             type: integer
             format: int64
-            example: 456
       responses:
         "200":
-          description: List of media IDs for the recipe ingredient
+          description: Media for the ingredient
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/MediaId"
-              example: [4, 5]
+                type: object
+                required:
+                  - media_ids
+                properties:
+                  media_ids:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MediaId"
+              example:
+                media_ids: [4, 5]
         "400":
           description: Invalid recipe or ingredient ID
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /media/recipe/{recipe_id}/step/{step_id}:
     get:
       tags: [media]
-      summary: Get media IDs by recipe step
+      summary: Get media for a recipe step
       description: |
-        Retrieve media IDs associated with a specific step in a recipe.
-
-        Returns an array of media IDs that are linked to the step.
+        Retrieve media associated with a specific step in a recipe.
       operationId: getMediaByStep
       parameters:
         - name: recipe_id
           in: path
-          description: The unique identifier of the recipe
           required: true
           schema:
             type: integer
             format: int64
-            example: 123
         - name: step_id
           in: path
-          description: The unique identifier of the step
           required: true
           schema:
             type: integer
             format: int64
-            example: 789
       responses:
         "200":
-          description: List of media IDs for the recipe step
+          description: Media for the step
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/MediaId"
-              example: [6, 7, 8]
+                type: object
+                required:
+                  - media_ids
+                properties:
+                  media_ids:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MediaId"
+              example:
+                media_ids: [6, 7, 8]
         "400":
           description: Invalid recipe or step ID
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
 components:
   schemas:
     MediaId:
       type: integer
       format: int64
-      description: Unique identifier for media files (database BIGSERIAL)
+      description: Unique media file identifier (database BIGSERIAL)
       example: 123
 
     HealthResponse:
       type: object
-      required:
-        - status
-        - timestamp
-        - service
-        - version
-        - response_time_ms
-        - checks
+      required: [status, timestamp, service, version, response_time_ms, checks]
       properties:
         status:
           type: string
           enum: [healthy, degraded, unhealthy]
-          description: Overall health status
-          example: healthy
         timestamp:
           type: string
           format: date-time
-          description: ISO 8601 timestamp of the health check
-          example: "2025-01-15T10:30:00Z"
         service:
           type: string
-          description: Service name identifier
           example: "media-management-service"
         version:
           type: string
-          description: Service version
-          example: "0.1.0"
+          example: "0.2.0"
         response_time_ms:
           type: integer
           minimum: 0
-          description: Total time taken for health check in milliseconds
-          example: 25
         checks:
           type: object
-          required:
-            - database
-            - storage
-            - overall
+          required: [database, storage, overall]
           properties:
             database:
               $ref: "#/components/schemas/DependencyCheck"
@@ -961,48 +747,29 @@ components:
             overall:
               type: string
               enum: [healthy, degraded, unhealthy]
-              description: Overall assessment of all dependency checks
-              example: healthy
 
     ReadinessResponse:
       type: object
-      required:
-        - status
-        - timestamp
-        - service
-        - version
-        - response_time_ms
-        - checks
+      required: [status, timestamp, service, version, response_time_ms, checks]
       properties:
         status:
           type: string
           enum: [ready, not_ready]
-          description: Binary readiness status
-          example: ready
         timestamp:
           type: string
           format: date-time
-          description: ISO 8601 timestamp of the readiness check
-          example: "2025-01-15T10:30:00Z"
         service:
           type: string
-          description: Service name identifier
           example: "media-management-service"
         version:
           type: string
-          description: Service version
-          example: "0.1.0"
+          example: "0.2.0"
         response_time_ms:
           type: integer
           minimum: 0
-          description: Total time taken for readiness check in milliseconds
-          example: 25
         checks:
           type: object
-          required:
-            - database
-            - storage
-            - overall
+          required: [database, storage, overall]
           properties:
             database:
               $ref: "#/components/schemas/ReadinessDependencyCheck"
@@ -1011,8 +778,6 @@ components:
             overall:
               type: string
               enum: [ready, not_ready]
-              description: Overall readiness assessment - ready only if ALL dependencies ready
-              example: ready
 
     MediaDto:
       type: object
@@ -1021,11 +786,12 @@ components:
         - content_hash
         - original_filename
         - media_type
-        - media_path
         - file_size
         - processing_status
+        - uploaded_by
         - uploaded_at
         - updated_at
+        - download_url
       properties:
         id:
           $ref: "#/components/schemas/MediaId"
@@ -1033,19 +799,14 @@ components:
           type: string
           pattern: "^[a-f0-9]{64}$"
           description: SHA-256 hash of the file content
-          example: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
         original_filename:
           type: string
           description: Original filename as uploaded
           example: "example.jpg"
         media_type:
           type: string
-          description: MIME type of the media file
+          description: MIME type
           example: "image/jpeg"
-        media_path:
-          type: string
-          description: Content-addressable storage path
-          example: "ab/cd/ef/abcdef123456"
         file_size:
           type: integer
           format: int64
@@ -1053,112 +814,71 @@ components:
           description: File size in bytes
           example: 1048576
         processing_status:
+          $ref: "#/components/schemas/ProcessingStatus"
+        uploaded_by:
           type: string
-          enum: [Pending, Processing, Complete, Failed]
-          description: Current processing status
-          example: "Complete"
+          description: User ID of the uploader
+          example: "user-abc-123"
         uploaded_at:
           type: string
           format: date-time
-          description: ISO 8601 timestamp when the file was uploaded
-          example: "2025-01-15T10:30:00Z"
         updated_at:
           type: string
           format: date-time
-          description: ISO 8601 timestamp when the file was last updated
-          example: "2025-01-15T10:30:00Z"
+        download_url:
+          type: string
+          nullable: true
+          description: Signed download URL (null if processing not complete)
+          example: "/media/123/download?signature=abc123&expires=1709510400"
 
     PaginatedMediaResponse:
       type: object
-      required:
-        - data
-        - pagination
+      required: [data, pagination]
       properties:
         data:
           type: array
           items:
             $ref: "#/components/schemas/MediaDto"
-          description: List of media items for current page
         pagination:
           $ref: "#/components/schemas/PaginationInfo"
 
     PaginationInfo:
       type: object
-      required:
-        - page_size
-        - has_next
-        - has_prev
+      required: [page_size, has_next, has_prev]
       properties:
         next_cursor:
           type: string
           nullable: true
-          description: Base64-encoded cursor for next page (null if last page)
-          example: "eyJpZCI6MTI0fQ=="
+          description: Base64-encoded cursor for next page
         prev_cursor:
           type: string
           nullable: true
-          description: Cursor for previous page (currently null, reserved for future use)
-          example: null
+          description: Cursor for previous page
         page_size:
           type: integer
           minimum: 0
-          description: Number of items in current page
-          example: 1
         has_next:
           type: boolean
-          description: Whether there are more items after this page
-          example: true
         has_prev:
           type: boolean
-          description: Whether there are items before this page (based on cursor presence)
-          example: false
 
     ProcessingStatus:
       type: string
-      enum: [Pending, Processing, Complete, Failed]
-      description: Current processing status of the media file
-      example: "Complete"
-
-    UploadMediaResponse:
-      type: object
-      required:
-        - media_id
-        - content_hash
-        - processing_status
-      properties:
-        media_id:
-          $ref: "#/components/schemas/MediaId"
-        content_hash:
-          type: string
-          pattern: "^[a-f0-9]{64}$"
-          description: SHA-256 hash of the uploaded file
-          example: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-        processing_status:
-          $ref: "#/components/schemas/ProcessingStatus"
-        upload_url:
-          type: string
-          format: uri
-          nullable: true
-          description: Optional direct URL to access the uploaded file
-          example: "https://example.com/media/123"
+      enum: [pending, processing, complete, failed]
+      description: Media processing status
 
     InitiateUploadRequest:
       type: object
-      required:
-        - filename
-        - content_type
-        - file_size
+      required: [filename, content_type, file_size]
       properties:
         filename:
           type: string
           minLength: 1
           maxLength: 255
-          description: Original filename (validated for security)
           example: "example.jpg"
         content_type:
           type: string
-          pattern: "^[a-zA-Z0-9][a-zA-Z0-9!#$&\\-\\^_]*\/[a-zA-Z0-9][a-zA-Z0-9!#$&\\-\\^_.]*$"
-          description: MIME content type (must contain slash)
+          description: MIME content type
           example: "image/jpeg"
         file_size:
           type: integer
@@ -1166,171 +886,111 @@ components:
           minimum: 1
           maximum: 52428800
           description: File size in bytes (max 50MB default)
-          example: 1048576
 
     InitiateUploadResponse:
       type: object
-      required:
-        - media_id
-        - upload_url
-        - upload_token
-        - expires_at
-        - status
+      required: [media_id, upload_url, upload_token, expires_at]
       properties:
         media_id:
           $ref: "#/components/schemas/MediaId"
         upload_url:
           type: string
-          format: uri
-          description: Presigned URL for file upload with security parameters
-          example: >
-            http://localhost:3000/api/v1/media-management/media/upload/upload_abc123?signature=def456&expires=1704067200&size=1048576&type=image%2Fjpeg
+          description: Presigned URL for file upload
         upload_token:
           type: string
           pattern: "^upload_[a-zA-Z0-9]{32}$"
-          description: Unique token identifying the upload session
-          example: "upload_abc123def456"
         expires_at:
           type: string
           format: date-time
-          description: ISO 8601 timestamp when upload URL expires
-          example: "2024-01-01T12:00:00Z"
-        status:
-          type: string
-          enum: [Pending]
-          description: Initial status is always Pending
-          example: "Pending"
 
     UploadStatusResponse:
       type: object
-      required:
-        - media_id
-        - status
+      required: [media_id, status]
       properties:
         media_id:
           $ref: "#/components/schemas/MediaId"
         status:
           $ref: "#/components/schemas/ProcessingStatus"
-        progress:
-          type: integer
-          minimum: 0
-          maximum: 100
-          nullable: true
-          description: Processing progress percentage (0-100)
-          example: 85
         error_message:
           type: string
           nullable: true
-          description: Error description if status is Failed
-          example: "Corrupted file header detected"
+          description: Error description if status is failed
         download_url:
           type: string
-          format: uri
           nullable: true
-          description: Download URL when processing complete
-          example: "http://localhost:3000/api/v1/media-management/media/123/download"
-        processing_time_ms:
-          type: integer
-          format: int64
-          minimum: 0
-          nullable: true
-          description: Total processing time in milliseconds
-          example: 2500
+          description: Signed download URL when processing complete
         uploaded_at:
           type: string
           format: date-time
           nullable: true
-          description: ISO 8601 timestamp when file was uploaded
-          example: "2024-01-01T12:00:00Z"
         completed_at:
           type: string
           format: date-time
           nullable: true
-          description: ISO 8601 timestamp when processing completed
-          example: "2024-01-01T12:00:02Z"
 
     ErrorResponse:
       type: object
-      required:
-        - error
-        - message
+      required: [error, message]
       properties:
         error:
           type: string
           description: Error type identifier
-          example: "Not Found"
+          example: "not_found"
         message:
           type: string
           description: Human-readable error description
-          example: "The requested resource was not found"
-        details:
-          type: object
-          description: Additional error context (optional)
-          additionalProperties: true
 
     DependencyCheck:
       type: object
-      required:
-        - status
-        - response_time_ms
+      required: [status, response_time_ms]
       properties:
         status:
           type: string
           enum: [healthy, unhealthy, timeout]
-          description: Status of individual dependency check
-          example: healthy
         response_time_ms:
           type: integer
           minimum: 0
-          description: Time taken for dependency check in milliseconds
-          example: 5
 
     ReadinessDependencyCheck:
       type: object
-      required:
-        - status
-        - response_time_ms
+      required: [status, response_time_ms]
       properties:
         status:
           type: string
           enum: [ready, not_ready, timeout]
-          description: Readiness status of individual dependency check
-          example: ready
         response_time_ms:
           type: integer
           minimum: 0
-          description: Time taken for dependency check in milliseconds
-          example: 5
 
   parameters:
     MediaId:
       name: id
       in: path
-      description: The unique identifier of the media file
+      description: Unique media file identifier
       required: true
       schema:
         $ref: "#/components/schemas/MediaId"
 
   responses:
-    NotFound:
-      description: The requested resource was not found
+    Unauthorized:
+      description: Invalid or missing authentication
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
           example:
-            error: "Not Found"
-            message: "The requested resource was not found"
+            error: "unauthorized"
+            message: "Invalid or missing authentication token"
 
-    BadRequest:
-      description: Invalid request parameters
+    NotFound:
+      description: Resource not found
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
           example:
-            error: "Bad Request"
-            message: "Invalid request parameters"
+            error: "not_found"
+            message: "The requested resource was not found"
 
     InternalServerError:
       description: Unexpected server error
@@ -1339,7 +999,7 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
           example:
-            error: "Internal Server Error"
+            error: "internal_error"
             message: "An unexpected error occurred"
 
   securitySchemes:
@@ -1347,23 +1007,15 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: |-
-        OAuth2 JWT token authentication.
+      description: |
+        OAuth2/JWT token authentication via Authorization header.
+    SignedUrl:
+      type: apiKey
+      in: query
+      name: signature
+      description: |
+        HMAC-SHA256 signed URL for browser-safe access (e.g., img src).
+        Requires both `signature` and `expires` query parameters.
 
-        **Required Header:** `Authorization: Bearer {jwt_token}`
-
-        **JWT Claims Format:**
-        - iss: Issuer (OAuth2 service)
-        - aud: Audience (service identifiers)
-        - sub: Subject (user ID)
-        - client_id: OAuth2 client identifier
-        - scopes: Array of OAuth2 scopes
-        - exp: Expiration timestamp
-
-# Global security requirement - all endpoints require authentication except health checks
 security:
   - BearerAuth: []
-
-externalDocs:
-  description: Media Management Service Documentation
-  url: ./API.md
