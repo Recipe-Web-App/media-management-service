@@ -1,0 +1,85 @@
+version: "3"
+
+vars:
+  BINARY_NAME: media-management-service
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds: [task --list]
+
+  build:
+    desc: Build the project
+    cmds: [cargo build]
+    sources: [src/**/*.rs, Cargo.toml, Cargo.lock]
+
+  build:release:
+    desc: Build optimized release binary
+    cmds: [cargo build --release]
+
+  run:
+    desc: Run the service locally
+    cmds: [cargo run]
+    env:
+      RUN_MODE: local
+      RUST_LOG: debug
+
+  test:
+    desc: Run all tests
+    cmds: [cargo test]
+
+  test:unit:
+    desc: Run unit tests only
+    cmds: [cargo test --lib]
+
+  test:integration:
+    desc: Run integration tests only
+    cmds: ["cargo test --test '*'"]
+
+  lint:
+    desc: Run all linters
+    cmds:
+      - cargo fmt --all -- --check
+      - cargo clippy --all-targets -- -D warnings
+      - cargo deny check
+
+  fmt:
+    desc: Format code
+    cmds: [cargo fmt --all]
+
+  check:
+    desc: Quick compile check
+    cmds: [cargo check]
+
+  clean:
+    desc: Clean build artifacts
+    cmds: [cargo clean]
+
+  coverage:
+    desc: Generate HTML coverage report
+    cmds: [cargo llvm-cov --html]
+
+  docker:build:
+    desc: Build Docker image
+    cmds: ["docker build -t {{.BINARY_NAME}}:dev ."]
+
+  docker:run:
+    desc: Run Docker container locally
+    deps: [docker:build]
+    cmds:
+      - "docker run --rm -p 3000:3000 --env-file .env.local {{.BINARY_NAME}}:dev"
+
+  k8s:local:
+    desc: Generate k8s manifests for local
+    cmds: [kustomize build k8s/overlays/local]
+
+  k8s:prod:
+    desc: Generate k8s manifests for production
+    cmds: [kustomize build k8s/overlays/prod]
+
+  setup:
+    desc: Install development dependencies
+    cmds:
+      - rustup component add llvm-tools-preview
+      - cargo install cargo-llvm-cov cargo-deny lefthook
+      - lefthook install
