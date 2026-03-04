@@ -1,5 +1,8 @@
 use media_management_service::config::{Config, RunMode};
+use media_management_service::db;
 use media_management_service::routes;
+use media_management_service::state::AppState;
+use media_management_service::storage::Storage;
 use tracing_subscriber::EnvFilter;
 
 fn init_tracing(config: &Config) {
@@ -24,7 +27,18 @@ async fn main() {
     let config = Config::from_env();
     init_tracing(&config);
 
-    let app = routes::router();
+    let db_pool = db::connect(&config)
+        .await
+        .expect("failed to connect to database");
+    tracing::info!("database connection pool established");
+
+    let storage = Storage::new(&config.storage_base_path, &config.storage_temp_path)
+        .await
+        .expect("failed to initialise storage");
+    tracing::info!("storage initialised");
+
+    let state = AppState { db_pool, storage };
+    let app = routes::router(state);
 
     let addr = format!("{}:{}", config.host, config.port);
     tracing::info!("listening on {addr}");

@@ -12,4 +12,5 @@ pub mod error;
 pub mod health;
 pub mod models;
 pub mod routes;
+pub mod state;
 pub mod storage;
