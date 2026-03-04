@@ -37,7 +37,11 @@ async fn main() {
         .expect("failed to initialise storage");
     tracing::info!("storage initialised");
 
-    let state = AppState { db_pool, storage };
+    let state = AppState {
+        db_pool,
+        storage,
+        config: config.clone(),
+    };
     let app = routes::router(state);
 
     let addr = format!("{}:{}", config.host, config.port);

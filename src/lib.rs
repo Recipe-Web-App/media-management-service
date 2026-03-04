@@ -9,8 +9,10 @@
 pub mod config;
 pub mod db;
 pub mod error;
+pub mod handlers;
 pub mod health;
 pub mod models;
+pub mod presigned;
 pub mod routes;
 pub mod state;
 pub mod storage;

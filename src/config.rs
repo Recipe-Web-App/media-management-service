@@ -29,6 +29,7 @@ pub struct Config {
     pub storage_base_path: String,
     pub storage_temp_path: String,
     pub download_url_ttl_secs: u64,
+    pub signing_secret: String,
     pub auth: AuthModeConfig,
     pub run_mode: RunMode,
     pub otel_endpoint: Option<String>,
@@ -81,6 +82,16 @@ impl Config {
 
         let auth = Self::parse_auth_mode();
 
+        let signing_secret = match &auth {
+            AuthModeConfig::Jwt { secret } => {
+                env::var("MEDIA_SERVICE_SIGNING_SECRET").unwrap_or_else(|_| secret.clone())
+            }
+            AuthModeConfig::Dev => env::var("MEDIA_SERVICE_SIGNING_SECRET")
+                .unwrap_or_else(|_| "dev-signing-secret-not-for-production".into()),
+            AuthModeConfig::OAuth2 { .. } => env::var("MEDIA_SERVICE_SIGNING_SECRET")
+                .expect("MEDIA_SERVICE_SIGNING_SECRET required in OAuth2 mode"),
+        };
+
         let otel_endpoint = env::var("OTEL_EXPORTER_OTLP_ENDPOINT")
             .ok()
             .filter(|s| !s.is_empty());
@@ -94,6 +105,7 @@ impl Config {
             storage_base_path,
             storage_temp_path,
             download_url_ttl_secs,
+            signing_secret,
             auth,
             run_mode,
             otel_endpoint,
