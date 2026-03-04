@@ -1,0 +1,84 @@
+[package]
+name = "media-management-service"
+version = "0.2.0"
+edition = "2024"
+rust-version = "1.85"
+publish = false
+
+[dependencies]
+axum = { version = "0.8", features = ["multipart"] }
+axum-extra = { version = "0.12", features = ["typed-header"] }
+tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.7", features = ["io"] }
+tower-http = { version = "0.6", features = [
+  "cors",
+  "compression-gzip",
+  "trace",
+  "timeout",
+  "set-header",
+  "request-id",
+] }
+tower = "0.5"
+sqlx = { version = "0.8", features = [
+  "postgres",
+  "runtime-tokio-rustls",
+  "chrono",
+  "uuid",
+] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+sha2 = "0.10"
+hex = "0.4"
+base64 = "0.22"
+hmac = "0.12"
+rand = "0.9"
+jsonwebtoken = "10"
+reqwest = { version = "0.13", features = ["json"] }
+dotenvy = "0.15"
+bytes = "1"
+futures-util = "0.3"
+opentelemetry = "0.28"
+opentelemetry_sdk = { version = "0.28", features = ["rt-tokio"] }
+opentelemetry-otlp = "0.28"
+tracing-opentelemetry = "0.29"
+
+[dev-dependencies]
+tempfile = "3"
+rstest = "0.24"
+wiremock = "0.6"
+http-body-util = "0.1"
+claims = "0.8"
+
+[profile.dev]
+opt-level = 0
+debug = "line-tables-only"
+split-debuginfo = "unpacked"
+codegen-units = 256
+incremental = true
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+strip = true
+codegen-units = 1
+panic = "abort"
+
+[profile.ci]
+inherits = "dev"
+incremental = false
+codegen-units = 16
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+must_use_candidate = { level = "allow" }
+missing_errors_doc = { level = "allow" }
+cast_possible_truncation = { level = "allow" }
+cast_sign_loss = { level = "allow" }
+module_name_repetitions = { level = "allow" }
+missing_panics_doc = { level = "allow" }
