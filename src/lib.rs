@@ -6,6 +6,7 @@
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::missing_panics_doc)]
 
+pub mod auth;
 pub mod config;
 pub mod db;
 pub mod error;

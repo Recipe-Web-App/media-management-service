@@ -37,8 +37,8 @@ hex = "0.4"
 base64 = "0.22"
 hmac = "0.12"
 rand = "0.9"
-jsonwebtoken = "10"
-reqwest = { version = "0.13", features = ["json"] }
+jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
+reqwest = { version = "0.13", features = ["json", "form"] }
 dotenvy = "0.15"
 bytes = "1"
 futures-util = "0.3"

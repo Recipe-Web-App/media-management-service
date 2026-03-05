@@ -1,3 +1,4 @@
+use media_management_service::auth::AuthMode;
 use media_management_service::config::{Config, RunMode};
 use media_management_service::db;
 use media_management_service::routes;
@@ -37,10 +38,14 @@ async fn main() {
         .expect("failed to initialise storage");
     tracing::info!("storage initialised");
 
+    let auth_mode = AuthMode::from_config(&config.auth);
+    tracing::info!("auth mode: {}", auth_mode.name());
+
     let state = AppState {
         db_pool,
         storage,
         config: config.clone(),
+        auth_mode,
     };
     let app = routes::router(state);
 
