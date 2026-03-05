@@ -1,5 +1,5 @@
 use axum::Json;
-use axum::body::Body;
+use axum::body::{Body, Bytes};
 use axum::extract::{Multipart, Path, Query, State};
 use axum::http::header;
 use axum::http::{HeaderMap, StatusCode};
@@ -12,8 +12,8 @@ use uuid::Uuid;
 use crate::db;
 use crate::error::AppError;
 use crate::models::{
-    ContentHash, ListMediaQuery, Media, MediaDto, NewMedia, PaginatedMediaResponse, PaginationInfo,
-    UploadStatusResponse,
+    ContentHash, InitiateUploadRequest, InitiateUploadResponse, ListMediaQuery, Media, MediaDto,
+    NewMedia, PaginatedMediaResponse, PaginationInfo, UploadStatusResponse,
 };
 use crate::presigned;
 use crate::state::AppState;
@@ -64,6 +64,15 @@ pub struct MediaIdsResponse {
 pub struct DownloadQuery {
     pub signature: Option<String>,
     pub expires: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UploadQuery {
+    pub signature: String,
+    pub expires: u64,
+    pub size: i64,
+    #[serde(rename = "type")]
+    pub content_type: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -313,6 +322,153 @@ pub async fn get_upload_status(
 
     Ok(Json(response))
 }
+
+// ---------------------------------------------------------------------------
+// Presigned upload handlers
+// ---------------------------------------------------------------------------
+
+pub async fn initiate_upload(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<InitiateUploadRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    let user_id = extract_user_id(&headers)?;
+
+    if req.filename.trim().is_empty() {
+        return Err(AppError::BadRequest("filename must not be empty".into()));
+    }
+    if req.content_type.trim().is_empty() {
+        return Err(AppError::BadRequest(
+            "content_type must not be empty".into(),
+        ));
+    }
+    if req.file_size <= 0 {
+        return Err(AppError::BadRequest("file_size must be positive".into()));
+    }
+    #[allow(clippy::cast_sign_loss)]
+    if req.file_size as u64 > state.config.max_upload_size {
+        return Err(AppError::PayloadTooLarge);
+    }
+
+    // Use a random placeholder hash to avoid UNIQUE constraint collisions
+    // across concurrent pending uploads.
+    let placeholder_hash = hex::encode(rand::random::<[u8; 32]>());
+
+    let new_media = NewMedia {
+        user_id,
+        content_hash: placeholder_hash,
+        original_filename: req.filename,
+        media_type: req.content_type.clone(),
+        media_path: String::new(),
+        file_size: req.file_size,
+        processing_status: "pending".to_string(),
+    };
+    let media_id = db::save_media(&state.db_pool, &new_media).await?;
+
+    let token = presigned::generate_upload_token(media_id);
+    let (upload_url, expires) = presigned::sign_upload_url(
+        &token,
+        req.file_size,
+        &req.content_type,
+        &state.config.signing_secret,
+        state.config.upload_url_ttl_secs,
+    );
+
+    #[allow(clippy::cast_possible_wrap)]
+    let expires_at =
+        chrono::DateTime::from_timestamp(expires as i64, 0).unwrap_or_else(chrono::Utc::now);
+
+    let response = InitiateUploadResponse {
+        media_id,
+        upload_url,
+        upload_token: token,
+        expires_at,
+    };
+
+    Ok((StatusCode::OK, Json(response)))
+}
+
+pub async fn upload_file(
+    State(state): State<AppState>,
+    Path(token): Path<String>,
+    Query(query): Query<UploadQuery>,
+    body: Bytes,
+) -> Result<impl IntoResponse, AppError> {
+    // URL-decode the content_type (e.g. "image%2Fjpeg" -> "image/jpeg")
+    let content_type = query.content_type.replace("%2F", "/");
+
+    presigned::verify_upload_signature(
+        &token,
+        &query.signature,
+        query.expires,
+        query.size,
+        &content_type,
+        &state.config.signing_secret,
+    )?;
+
+    let media_id = presigned::decode_upload_token(&token)?;
+
+    let mut media = db::find_media_by_id(&state.db_pool, media_id)
+        .await?
+        .ok_or(AppError::NotFound("media"))?;
+
+    if media.processing_status != "pending" {
+        return Err(AppError::Conflict(format!(
+            "media {media_id} is not in pending status (current: {})",
+            media.processing_status
+        )));
+    }
+
+    let body_size = i64::try_from(body.len()).map_err(|_| AppError::PayloadTooLarge)?;
+    if body_size != query.size {
+        return Err(AppError::BadRequest(format!(
+            "file size mismatch: expected {} bytes, got {body_size} bytes",
+            query.size
+        )));
+    }
+
+    let hash_bytes = Sha256::digest(&body);
+    let hash_hex = hex::encode(hash_bytes);
+    let content_hash = ContentHash::new(&hash_hex)?;
+
+    // Dedup: if this content already exists, delete the pending record
+    // and return the existing one (avoids UNIQUE constraint violation).
+    if let Some(existing) =
+        db::find_media_by_content_hash(&state.db_pool, content_hash.as_str()).await?
+    {
+        db::delete_media(&state.db_pool, media_id).await?;
+        let dto = media_to_dto(
+            &existing,
+            &state.config.signing_secret,
+            state.config.download_url_ttl_secs,
+        );
+        return Ok((StatusCode::OK, Json(dto)));
+    }
+
+    let media_path = state.storage.store(&content_hash, &body).await?;
+
+    media.content_hash = hash_hex;
+    media.media_path = media_path;
+    media.file_size = body_size;
+    media.processing_status = "complete".to_string();
+    db::update_media(&state.db_pool, &media).await?;
+
+    // Re-fetch for updated timestamps
+    let updated = db::find_media_by_id(&state.db_pool, media_id)
+        .await?
+        .ok_or_else(|| AppError::Internal("media not found after update".into()))?;
+
+    let dto = media_to_dto(
+        &updated,
+        &state.config.signing_secret,
+        state.config.download_url_ttl_secs,
+    );
+    Ok((StatusCode::OK, Json(dto)))
+}
+
+// ---------------------------------------------------------------------------
+// Association handlers
+// ---------------------------------------------------------------------------
 
 pub async fn get_media_by_recipe(
     State(state): State<AppState>,

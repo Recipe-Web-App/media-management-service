@@ -29,6 +29,7 @@ pub struct Config {
     pub storage_base_path: String,
     pub storage_temp_path: String,
     pub download_url_ttl_secs: u64,
+    pub upload_url_ttl_secs: u64,
     pub signing_secret: String,
     pub auth: AuthModeConfig,
     pub run_mode: RunMode,
@@ -79,6 +80,10 @@ impl Config {
             .unwrap_or_else(|_| "86400".into())
             .parse()
             .expect("MEDIA_SERVICE_DOWNLOAD_URL_TTL_SECS must be a valid u64");
+        let upload_url_ttl_secs = env::var("MEDIA_SERVICE_UPLOAD_URL_TTL_SECS")
+            .unwrap_or_else(|_| "900".into())
+            .parse()
+            .expect("MEDIA_SERVICE_UPLOAD_URL_TTL_SECS must be a valid u64");
 
         let auth = Self::parse_auth_mode();
 
@@ -105,6 +110,7 @@ impl Config {
             storage_base_path,
             storage_temp_path,
             download_url_ttl_secs,
+            upload_url_ttl_secs,
             signing_secret,
             auth,
             run_mode,
