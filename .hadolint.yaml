@@ -1,0 +1,2 @@
+ignored:
+  - DL3008 # Don't pin apt package versions — fragile on Debian, breaks when versions rotate
