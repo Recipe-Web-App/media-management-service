@@ -1,10 +1,16 @@
+use std::sync::Arc;
+
 use axum::Router;
-use axum::middleware;
+use axum::middleware as axum_mw;
 use axum::routing::{get, post, put};
+use tower_governor::GovernorLayer;
+use tower_governor::governor::GovernorConfigBuilder;
+use tower_governor::key_extractor::GlobalKeyExtractor;
 
 use crate::auth;
 use crate::handlers;
 use crate::health;
+use crate::middleware;
 use crate::state::AppState;
 
 pub fn router(state: AppState) -> Router {
@@ -29,7 +35,7 @@ pub fn router(state: AppState) -> Router {
             "/media/recipe/{rid}/step/{id}",
             get(handlers::get_media_by_step),
         )
-        .layer(middleware::from_fn_with_state(
+        .layer(axum_mw::from_fn_with_state(
             state.clone(),
             auth::auth_middleware,
         ));
@@ -44,6 +50,17 @@ pub fn router(state: AppState) -> Router {
         .route("/health", get(health::health))
         .route("/ready", get(health::ready));
 
+    let cors = middleware::cors_layer(&state.config);
+
+    let governor_config = Arc::new(
+        GovernorConfigBuilder::default()
+            .per_second(middleware::RATE_LIMIT_PER_SECOND)
+            .burst_size(middleware::RATE_LIMIT_BURST)
+            .key_extractor(GlobalKeyExtractor)
+            .finish()
+            .expect("rate limiter config is valid"),
+    );
+
     Router::new()
         .nest(
             "/api/v1/media-management",
@@ -53,4 +70,17 @@ pub fn router(state: AppState) -> Router {
                 .merge(health_routes),
         )
         .with_state(state)
+        // Layers applied in reverse: last .layer() call = outermost middleware.
+        // Outermost → Innermost: RequestId, Trace, PropagateId, CORS,
+        //   RateLimit, Timeout, Compression, SecurityHeaders
+        .layer(middleware::nosniff_layer())
+        .layer(middleware::frame_deny_layer())
+        .layer(middleware::referrer_policy_layer())
+        .layer(middleware::compression_layer())
+        .layer(middleware::timeout_layer())
+        .layer(GovernorLayer::new(governor_config))
+        .layer(cors)
+        .layer(middleware::propagate_request_id_layer())
+        .layer(middleware::trace_layer())
+        .layer(middleware::request_id_layer())
 }

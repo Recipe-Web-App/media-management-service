@@ -19,6 +19,9 @@ tower-http = { version = "0.6", features = [
   "request-id",
 ] }
 tower = "0.5"
+tower_governor = { version = "0.8", default-features = false, features = [
+  "axum",
+] }
 sqlx = { version = "0.8", features = [
   "postgres",
   "runtime-tokio-rustls",
@@ -48,6 +51,7 @@ opentelemetry-otlp = "0.28"
 tracing-opentelemetry = "0.29"
 
 [dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
 tempfile = "3"
 rstest = "0.24"
 wiremock = "0.6"
