@@ -1,12 +1,14 @@
 use axum::Router;
+use axum::middleware;
 use axum::routing::{get, post, put};
 
+use crate::auth;
 use crate::handlers;
 use crate::health;
 use crate::state::AppState;
 
 pub fn router(state: AppState) -> Router {
-    // Media CRUD routes: Phase 5 will wrap these with auth middleware.
+    // Media CRUD routes: protected by auth middleware.
     let media_routes = Router::new()
         .route(
             "/media",
@@ -26,7 +28,11 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/media/recipe/{rid}/step/{id}",
             get(handlers::get_media_by_step),
-        );
+        )
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth::auth_middleware,
+        ));
 
     // Download endpoint handles its own dual auth (bearer or signed URL).
     let download_route = Router::new().route("/media/{id}/download", get(handlers::download_media));

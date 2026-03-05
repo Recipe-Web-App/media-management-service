@@ -1,5 +1,5 @@
 use axum::Json;
-use axum::body::{Body, Bytes};
+use axum::body::Body;
 use axum::extract::{Multipart, Path, Query, State};
 use axum::http::header;
 use axum::http::{HeaderMap, StatusCode};
@@ -7,8 +7,10 @@ use axum::response::{IntoResponse, Response};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tokio_util::io::ReaderStream;
+
 use uuid::Uuid;
 
+use crate::auth::{self, AuthUser};
 use crate::db;
 use crate::error::AppError;
 use crate::models::{
@@ -21,18 +23,6 @@ use crate::state::AppState;
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/// Temporary user-ID extraction from the `x-user-id` header.
-/// Replaced by auth middleware in Phase 5.
-fn extract_user_id(headers: &HeaderMap) -> Result<Uuid, AppError> {
-    let value = headers
-        .get("x-user-id")
-        .ok_or_else(|| AppError::Unauthorized("missing x-user-id header".into()))?
-        .to_str()
-        .map_err(|_| AppError::BadRequest("x-user-id header is not valid UTF-8".into()))?;
-
-    Uuid::parse_str(value).map_err(|_| AppError::BadRequest("x-user-id is not a valid UUID".into()))
-}
 
 fn media_to_dto(media: &Media, signing_secret: &str, ttl_secs: u64) -> MediaDto {
     let download_url = presigned::generate_download_url(
@@ -76,15 +66,15 @@ pub struct UploadQuery {
 }
 
 // ---------------------------------------------------------------------------
-// Handlers
+// Handlers (behind auth middleware)
 // ---------------------------------------------------------------------------
 
 pub async fn upload_media(
     State(state): State<AppState>,
-    headers: HeaderMap,
+    auth_user: AuthUser,
     mut multipart: Multipart,
 ) -> Result<impl IntoResponse, AppError> {
-    let user_id = extract_user_id(&headers)?;
+    let user_id = auth_user.user_id;
 
     let field = multipart
         .next_field()
@@ -152,11 +142,9 @@ pub async fn upload_media(
 
 pub async fn get_media(
     State(state): State<AppState>,
-    headers: HeaderMap,
+    _auth_user: AuthUser,
     Path(media_id): Path<i64>,
 ) -> Result<Json<MediaDto>, AppError> {
-    let _user_id = extract_user_id(&headers)?;
-
     let media = db::find_media_by_id(&state.db_pool, media_id)
         .await?
         .ok_or(AppError::NotFound("media"))?;
@@ -171,10 +159,10 @@ pub async fn get_media(
 
 pub async fn list_media(
     State(state): State<AppState>,
-    headers: HeaderMap,
+    auth_user: AuthUser,
     Query(query): Query<ListMediaQuery>,
 ) -> Result<Json<PaginatedMediaResponse>, AppError> {
-    let user_id = extract_user_id(&headers)?;
+    let user_id = auth_user.user_id;
 
     let scope_user_id = query
         .uploaded_by
@@ -223,11 +211,9 @@ pub async fn list_media(
 
 pub async fn delete_media(
     State(state): State<AppState>,
-    headers: HeaderMap,
+    _auth_user: AuthUser,
     Path(media_id): Path<i64>,
 ) -> Result<StatusCode, AppError> {
-    let _user_id = extract_user_id(&headers)?;
-
     let media = db::find_media_by_id(&state.db_pool, media_id)
         .await?
         .ok_or(AppError::NotFound("media"))?;
@@ -249,7 +235,8 @@ pub async fn download_media(
     Path(media_id): Path<i64>,
     Query(query): Query<DownloadQuery>,
 ) -> Result<Response, AppError> {
-    let is_authed = extract_user_id(&headers).is_ok();
+    // Dual auth: try bearer token first, fall back to signed URL.
+    let is_authed = auth::authenticate(&state.auth_mode, &headers).await.is_ok();
 
     if !is_authed {
         let signature = query.signature.as_deref().ok_or_else(|| {
@@ -289,11 +276,9 @@ pub async fn download_media(
 
 pub async fn get_upload_status(
     State(state): State<AppState>,
-    headers: HeaderMap,
+    _auth_user: AuthUser,
     Path(media_id): Path<i64>,
 ) -> Result<Json<UploadStatusResponse>, AppError> {
-    let _user_id = extract_user_id(&headers)?;
-
     let media = db::find_media_by_id(&state.db_pool, media_id)
         .await?
         .ok_or(AppError::NotFound("media"))?;
@@ -329,10 +314,10 @@ pub async fn get_upload_status(
 
 pub async fn initiate_upload(
     State(state): State<AppState>,
-    headers: HeaderMap,
+    auth_user: AuthUser,
     Json(req): Json<InitiateUploadRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    let user_id = extract_user_id(&headers)?;
+    let user_id = auth_user.user_id;
 
     if req.filename.trim().is_empty() {
         return Err(AppError::BadRequest("filename must not be empty".into()));
@@ -392,7 +377,7 @@ pub async fn upload_file(
     State(state): State<AppState>,
     Path(token): Path<String>,
     Query(query): Query<UploadQuery>,
-    body: Bytes,
+    body: axum::body::Bytes,
 ) -> Result<impl IntoResponse, AppError> {
     // URL-decode the content_type (e.g. "image%2Fjpeg" -> "image/jpeg")
     let content_type = query.content_type.replace("%2F", "/");
@@ -467,25 +452,23 @@ pub async fn upload_file(
 }
 
 // ---------------------------------------------------------------------------
-// Association handlers
+// Association handlers (behind auth middleware)
 // ---------------------------------------------------------------------------
 
 pub async fn get_media_by_recipe(
     State(state): State<AppState>,
-    headers: HeaderMap,
+    _auth_user: AuthUser,
     Path(recipe_id): Path<i64>,
 ) -> Result<Json<MediaIdsResponse>, AppError> {
-    let _user_id = extract_user_id(&headers)?;
     let ids = db::find_media_ids_by_recipe(&state.db_pool, recipe_id).await?;
     Ok(Json(MediaIdsResponse { media_ids: ids }))
 }
 
 pub async fn get_media_by_ingredient(
     State(state): State<AppState>,
-    headers: HeaderMap,
+    _auth_user: AuthUser,
     Path((recipe_id, ingredient_id)): Path<(i64, i64)>,
 ) -> Result<Json<MediaIdsResponse>, AppError> {
-    let _user_id = extract_user_id(&headers)?;
     let ids =
         db::find_media_ids_by_recipe_ingredient(&state.db_pool, recipe_id, ingredient_id).await?;
     Ok(Json(MediaIdsResponse { media_ids: ids }))
@@ -493,10 +476,9 @@ pub async fn get_media_by_ingredient(
 
 pub async fn get_media_by_step(
     State(state): State<AppState>,
-    headers: HeaderMap,
+    _auth_user: AuthUser,
     Path((recipe_id, step_id)): Path<(i64, i64)>,
 ) -> Result<Json<MediaIdsResponse>, AppError> {
-    let _user_id = extract_user_id(&headers)?;
     let ids = db::find_media_ids_by_recipe_step(&state.db_pool, recipe_id, step_id).await?;
     Ok(Json(MediaIdsResponse { media_ids: ids }))
 }
