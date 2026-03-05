@@ -34,6 +34,7 @@ pub struct Config {
     pub auth: AuthModeConfig,
     pub run_mode: RunMode,
     pub otel_endpoint: Option<String>,
+    pub cors_allowed_origins: Vec<String>,
 }
 
 impl Config {
@@ -101,6 +102,14 @@ impl Config {
             .ok()
             .filter(|s| !s.is_empty());
 
+        let cors_allowed_origins: Vec<String> = env::var("CORS_ALLOWED_ORIGINS")
+            .unwrap_or_default()
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(String::from)
+            .collect();
+
         Self {
             host,
             port,
@@ -115,6 +124,7 @@ impl Config {
             auth,
             run_mode,
             otel_endpoint,
+            cors_allowed_origins,
         }
     }
 
