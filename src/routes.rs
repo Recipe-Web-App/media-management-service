@@ -1,5 +1,5 @@
 use axum::Router;
-use axum::routing::{get, post};
+use axum::routing::{get, post, put};
 
 use crate::handlers;
 use crate::health;
@@ -17,6 +17,7 @@ pub fn router(state: AppState) -> Router {
             get(handlers::get_media).delete(handlers::delete_media),
         )
         .route("/media/{id}/status", get(handlers::get_upload_status))
+        .route("/media/upload-request", post(handlers::initiate_upload))
         .route("/media/recipe/{id}", get(handlers::get_media_by_recipe))
         .route(
             "/media/recipe/{rid}/ingredient/{id}",
@@ -30,6 +31,9 @@ pub fn router(state: AppState) -> Router {
     // Download endpoint handles its own dual auth (bearer or signed URL).
     let download_route = Router::new().route("/media/{id}/download", get(handlers::download_media));
 
+    // Upload endpoint uses signed URL auth (token in path + HMAC signature).
+    let upload_route = Router::new().route("/media/upload/{token}", put(handlers::upload_file));
+
     let health_routes = Router::new()
         .route("/health", get(health::health))
         .route("/ready", get(health::ready));
@@ -37,7 +41,10 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .nest(
             "/api/v1/media-management",
-            media_routes.merge(download_route).merge(health_routes),
+            media_routes
+                .merge(download_route)
+                .merge(upload_route)
+                .merge(health_routes),
         )
         .with_state(state)
 }
