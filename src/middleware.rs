@@ -1,7 +1,9 @@
 use std::time::Duration;
 
 use axum::http::header::{self, HeaderName};
-use axum::http::{HeaderValue, Request, StatusCode};
+use axum::http::{HeaderMap, HeaderValue, Request, StatusCode};
+use opentelemetry::global;
+use opentelemetry::propagation::{Extractor, Injector};
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer};
 use tower_http::request_id::{
@@ -131,6 +133,95 @@ pub fn referrer_policy_layer() -> SetResponseHeaderLayer<HeaderValue> {
         HeaderName::from_static("referrer-policy"),
         HeaderValue::from_static("strict-origin-when-cross-origin"),
     )
+}
+
+// -- Trace context propagation -----------------------------------------------
+
+/// Tower layer that extracts W3C traceparent/tracestate from request headers
+/// and injects trace context into response headers for distributed tracing.
+#[derive(Clone)]
+pub struct TraceContextLayer;
+
+impl<S> tower::Layer<S> for TraceContextLayer {
+    type Service = TraceContextService<S>;
+
+    fn layer(&self, inner: S) -> Self::Service {
+        TraceContextService { inner }
+    }
+}
+
+/// Tower service that propagates W3C trace context headers.
+#[derive(Clone)]
+pub struct TraceContextService<S> {
+    inner: S,
+}
+
+impl<S, B> tower::Service<Request<B>> for TraceContextService<S>
+where
+    S: tower::Service<Request<B>, Response = axum::response::Response> + Clone + Send + 'static,
+    S::Future: Send,
+    B: Send + 'static,
+{
+    type Response = S::Response;
+    type Error = S::Error;
+    type Future = std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<Self::Response, Self::Error>> + Send>,
+    >;
+
+    fn poll_ready(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), Self::Error>> {
+        self.inner.poll_ready(cx)
+    }
+
+    fn call(&mut self, request: Request<B>) -> Self::Future {
+        let parent_cx = global::get_text_map_propagator(|propagator| {
+            propagator.extract(&HeaderExtractor(request.headers()))
+        });
+
+        let _guard = parent_cx.clone().attach();
+
+        let future = self.inner.call(request);
+
+        Box::pin(async move {
+            let mut response = future.await?;
+
+            global::get_text_map_propagator(|propagator| {
+                propagator.inject_context(&parent_cx, &mut HeaderInjector(response.headers_mut()));
+            });
+
+            Ok(response)
+        })
+    }
+}
+
+pub fn trace_context_layer() -> TraceContextLayer {
+    TraceContextLayer
+}
+
+struct HeaderExtractor<'a>(&'a HeaderMap);
+
+impl Extractor for HeaderExtractor<'_> {
+    fn get(&self, key: &str) -> Option<&str> {
+        self.0.get(key).and_then(|v| v.to_str().ok())
+    }
+
+    fn keys(&self) -> Vec<&str> {
+        self.0.keys().map(HeaderName::as_str).collect()
+    }
+}
+
+struct HeaderInjector<'a>(&'a mut HeaderMap);
+
+impl Injector for HeaderInjector<'_> {
+    fn set(&mut self, key: &str, value: String) {
+        if let Ok(name) = HeaderName::from_bytes(key.as_bytes()) {
+            if let Ok(val) = HeaderValue::from_str(&value) {
+                self.0.insert(name, val);
+            }
+        }
+    }
 }
 
 #[cfg(test)]

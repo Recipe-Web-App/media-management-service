@@ -81,6 +81,7 @@ pub fn router(state: AppState) -> Router {
         .layer(GovernorLayer::new(governor_config))
         .layer(cors)
         .layer(middleware::propagate_request_id_layer())
+        .layer(middleware::trace_context_layer())
         .layer(middleware::trace_layer())
         .layer(middleware::request_id_layer())
 }

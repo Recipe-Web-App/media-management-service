@@ -69,6 +69,17 @@ pub struct UploadQuery {
 // Handlers (behind auth middleware)
 // ---------------------------------------------------------------------------
 
+#[tracing::instrument(
+    name = "upload_media",
+    skip_all,
+    fields(
+        operation = "upload_media",
+        user_id = %auth_user.user_id,
+        media_id = tracing::field::Empty,
+        original_filename = tracing::field::Empty,
+        content_hash = tracing::field::Empty,
+    )
+)]
 pub async fn upload_media(
     State(state): State<AppState>,
     auth_user: AuthUser,
@@ -83,6 +94,7 @@ pub async fn upload_media(
         .ok_or_else(|| AppError::BadRequest("missing file field".into()))?;
 
     let original_filename = field.file_name().unwrap_or("unnamed").to_string();
+    tracing::Span::current().record("original_filename", &original_filename);
     let media_type = field
         .content_type()
         .unwrap_or("application/octet-stream")
@@ -102,6 +114,7 @@ pub async fn upload_media(
     let hash_bytes = Sha256::digest(&data);
     let hash_hex = hex::encode(hash_bytes);
     let content_hash = ContentHash::new(&hash_hex)?;
+    tracing::Span::current().record("content_hash", content_hash.as_str());
 
     // Dedup: return existing record if same content already stored
     if let Some(existing) =
@@ -127,6 +140,7 @@ pub async fn upload_media(
         processing_status: "complete".to_string(),
     };
     let media_id = db::save_media(&state.db_pool, &new_media).await?;
+    tracing::Span::current().record("media_id", media_id);
 
     let media = db::find_media_by_id(&state.db_pool, media_id)
         .await?
@@ -140,6 +154,7 @@ pub async fn upload_media(
     Ok((StatusCode::CREATED, Json(dto)))
 }
 
+#[tracing::instrument(name = "get_media", skip_all, fields(operation = "get_media", media_id = %media_id))]
 pub async fn get_media(
     State(state): State<AppState>,
     _auth_user: AuthUser,
@@ -157,6 +172,7 @@ pub async fn get_media(
     Ok(Json(dto))
 }
 
+#[tracing::instrument(name = "list_media", skip_all, fields(operation = "list_media", user_id = %auth_user.user_id))]
 pub async fn list_media(
     State(state): State<AppState>,
     auth_user: AuthUser,
@@ -209,6 +225,7 @@ pub async fn list_media(
     Ok(Json(response))
 }
 
+#[tracing::instrument(name = "delete_media", skip_all, fields(operation = "delete_media", media_id = %media_id))]
 pub async fn delete_media(
     State(state): State<AppState>,
     _auth_user: AuthUser,
@@ -229,6 +246,7 @@ pub async fn delete_media(
     Ok(StatusCode::NO_CONTENT)
 }
 
+#[tracing::instrument(name = "download_media", skip_all, fields(operation = "download_media", media_id = %media_id))]
 pub async fn download_media(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -274,6 +292,7 @@ pub async fn download_media(
         .map_err(|e| AppError::Internal(format!("failed to build response: {e}")))
 }
 
+#[tracing::instrument(name = "get_upload_status", skip_all, fields(operation = "get_upload_status", media_id = %media_id))]
 pub async fn get_upload_status(
     State(state): State<AppState>,
     _auth_user: AuthUser,
@@ -312,6 +331,11 @@ pub async fn get_upload_status(
 // Presigned upload handlers
 // ---------------------------------------------------------------------------
 
+#[tracing::instrument(
+    name = "initiate_upload",
+    skip_all,
+    fields(operation = "initiate_upload", user_id = %auth_user.user_id, media_id = tracing::field::Empty)
+)]
 pub async fn initiate_upload(
     State(state): State<AppState>,
     auth_user: AuthUser,
@@ -349,6 +373,7 @@ pub async fn initiate_upload(
         processing_status: "pending".to_string(),
     };
     let media_id = db::save_media(&state.db_pool, &new_media).await?;
+    tracing::Span::current().record("media_id", media_id);
 
     let token = presigned::generate_upload_token(media_id);
     let (upload_url, expires) = presigned::sign_upload_url(
@@ -373,6 +398,11 @@ pub async fn initiate_upload(
     Ok((StatusCode::OK, Json(response)))
 }
 
+#[tracing::instrument(
+    name = "upload_file",
+    skip_all,
+    fields(operation = "upload_file", token = %token, media_id = tracing::field::Empty)
+)]
 pub async fn upload_file(
     State(state): State<AppState>,
     Path(token): Path<String>,
@@ -392,6 +422,7 @@ pub async fn upload_file(
     )?;
 
     let media_id = presigned::decode_upload_token(&token)?;
+    tracing::Span::current().record("media_id", media_id);
 
     let mut media = db::find_media_by_id(&state.db_pool, media_id)
         .await?
@@ -455,6 +486,7 @@ pub async fn upload_file(
 // Association handlers (behind auth middleware)
 // ---------------------------------------------------------------------------
 
+#[tracing::instrument(name = "get_media_by_recipe", skip_all, fields(operation = "get_media_by_recipe", recipe_id = %recipe_id))]
 pub async fn get_media_by_recipe(
     State(state): State<AppState>,
     _auth_user: AuthUser,
@@ -464,6 +496,7 @@ pub async fn get_media_by_recipe(
     Ok(Json(MediaIdsResponse { media_ids: ids }))
 }
 
+#[tracing::instrument(name = "get_media_by_ingredient", skip_all, fields(operation = "get_media_by_ingredient", recipe_id = %recipe_id, ingredient_id = %ingredient_id))]
 pub async fn get_media_by_ingredient(
     State(state): State<AppState>,
     _auth_user: AuthUser,
@@ -474,6 +507,7 @@ pub async fn get_media_by_ingredient(
     Ok(Json(MediaIdsResponse { media_ids: ids }))
 }
 
+#[tracing::instrument(name = "get_media_by_step", skip_all, fields(operation = "get_media_by_step", recipe_id = %recipe_id, step_id = %step_id))]
 pub async fn get_media_by_step(
     State(state): State<AppState>,
     _auth_user: AuthUser,
