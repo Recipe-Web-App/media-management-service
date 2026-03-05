@@ -1,0 +1,15 @@
+target/
+.git/
+.cargo/
+.env
+.env.*
+docs/
+k8s/
+.beads/
+.serena/
+.devcontainer/
+media/
+*.md
+lefthook.yml
+Taskfile.yml
+renovate.json
