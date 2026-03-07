@@ -1,0 +1,3 @@
+# OAUTH2_CLIENT_ID is a public identifier, not a secret
+k8s/overlays/prod/kustomization.yaml:generic-api-key:26
+k8s/overlays/local/kustomization.yaml:generic-api-key:27
