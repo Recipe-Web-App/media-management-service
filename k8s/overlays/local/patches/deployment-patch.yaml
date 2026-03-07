@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: media-management-service
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: media-management-service
+          image: media-management-service:dev
+          imagePullPolicy: Never
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"

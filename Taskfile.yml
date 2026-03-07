@@ -70,12 +70,37 @@ tasks:
       - "docker run --rm -p 3000:3000 --env-file .env.local {{.BINARY_NAME}}:dev"
 
   k8s:local:
-    desc: Generate k8s manifests for local
+    desc: Preview local k8s manifests
     cmds: [kustomize build k8s/overlays/local]
 
   k8s:prod:
-    desc: Generate k8s manifests for production
+    desc: Preview production k8s manifests
     cmds: [kustomize build k8s/overlays/prod]
+
+  k8s:deploy:
+    desc: Deploy to local Kubernetes (Minikube)
+    cmds: ["bash scripts/containerManagement/deploy-container.sh {{.CLI_ARGS}}"]
+
+  k8s:update:
+    desc: Rebuild and update deployment
+    cmds: ["bash scripts/containerManagement/update-container.sh {{.CLI_ARGS}}"]
+
+  k8s:stop:
+    desc: Stop (scale to 0) the deployment
+    cmds: [bash scripts/containerManagement/stop-container.sh]
+
+  k8s:start:
+    desc: Start (scale up) the deployment
+    cmds: [bash scripts/containerManagement/start-container.sh]
+
+  k8s:cleanup:
+    desc: Remove all Kubernetes resources
+    cmds:
+      ["bash scripts/containerManagement/cleanup-container.sh {{.CLI_ARGS}}"]
+
+  k8s:status:
+    desc: Show deployment status dashboard
+    cmds: [bash scripts/containerManagement/get-container-status.sh]
 
   setup:
     desc: Install development dependencies

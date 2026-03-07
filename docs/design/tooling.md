@@ -144,12 +144,7 @@ Standardized dev environment for VS Code and GitHub Codespaces.
   },
   "customizations": {
     "vscode": {
-      "extensions": [
-        "rust-lang.rust-analyzer",
-        "tamasfe.even-better-toml",
-        "serayuzgur.crates",
-        "vadimcn.vscode-lldb"
-      ],
+      "extensions": ["rust-lang.rust-analyzer", "tamasfe.even-better-toml", "serayuzgur.crates", "vadimcn.vscode-lldb"],
       "settings": {
         "rust-analyzer.check.command": "clippy",
         "rust-analyzer.check.extraArgs": ["--all-targets"],
@@ -174,11 +169,7 @@ Automated dependency updates with smart grouping and auto-merge for safe changes
 ```json
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended",
-    "group:allNonMajor",
-    ":separateMajorReleases"
-  ],
+  "extends": ["config:recommended", "group:allNonMajor", ":separateMajorReleases"],
   "cargo": {
     "enabled": true
   },
@@ -436,7 +427,7 @@ configMapGenerator:
       - MEDIA_SERVICE_STORAGE_BASE_PATH=/app/media
       - OAUTH2_SERVICE_ENABLED=true
       - OAUTH2_INTROSPECTION_ENABLED=true
-      - OAUTH2_SERVICE_BASE_URL=http://auth-service-service.auth-service.svc.cluster.local/api/v1/auth
+      - API_GATEWAY_URL=http://auth-service-service.auth-service.svc.cluster.local/api/v1/auth
       - RUST_LOG=info
 ```
 

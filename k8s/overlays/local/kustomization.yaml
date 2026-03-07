@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: media-management
+
+resources:
+  - ../../base
+
+patches:
+  - path: patches/deployment-patch.yaml
+  - path: patches/pvc-patch.yaml
+
+configMapGenerator:
+  - name: media-management-config
+    literals:
+      - RUN_MODE=local
+      - MEDIA_SERVICE_SERVER_PORT=3000
+      - POSTGRES_HOST=recipe-database-service.recipe-database.svc.cluster.local
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=recipe_database
+      - POSTGRES_SCHEMA=recipe_manager
+      - MEDIA_SERVICE_STORAGE_BASE_PATH=/app/media
+      - MEDIA_SERVICE_STORAGE_TEMP_PATH=/app/media/temp
+      - OAUTH2_SERVICE_ENABLED=true
+      - OAUTH2_INTROSPECTION_ENABLED=true
+      - API_GATEWAY_URL=http://kong-gateway.kong.svc.cluster.local
+      - OAUTH2_CLIENT_ID=118fdc6a-2361-48bb-94d8-c36ed9d2da31
+      - RUST_LOG=debug

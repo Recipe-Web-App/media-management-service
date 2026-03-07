@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: media-management-service
+spec:
+  selector:
+    matchLabels:
+      app: media-management-service
+  template:
+    metadata:
+      labels:
+        app: media-management-service
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        fsGroup: 65534
+      containers:
+        - name: media-management-service
+          image: media-management-service:latest
+          ports:
+            - containerPort: 3000
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: media-management-config
+            - secretRef:
+                name: media-management-secrets
+                optional: true
+          livenessProbe:
+            httpGet:
+              path: /api/v1/media-management/health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/v1/media-management/ready
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          volumeMounts:
+            - name: media-storage
+              mountPath: /app/media
+            - name: tmp
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+      volumes:
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: media-management-storage
+        - name: tmp
+          emptyDir: {}

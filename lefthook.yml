@@ -7,86 +7,91 @@
 # Commands within each job run in parallel.
 
 pre-commit:
-  jobs:
-    # === Job 1: Format ===
-    # Auto-fix formatting issues before linting sees the code
-    - name: format
-      group:
-        parallel: true
-        jobs:
-          - name: cargo-fmt
-            glob: "*.rs"
-            run: cargo fmt --all
-            stage_fixed: true
+    jobs:
+        # === Job 1: Format ===
+        # Auto-fix formatting issues before linting sees the code
+        - name: format
+          group:
+              parallel: true
+              jobs:
+                  - name: cargo-fmt
+                    glob: "*.rs"
+                    run: cargo fmt --all
+                    stage_fixed: true
 
-          - name: taplo
-            glob: "*.toml"
-            run: uvx taplo fmt {staged_files}
-            stage_fixed: true
+                  - name: taplo
+                    glob: "*.toml"
+                    run: uvx taplo fmt {staged_files}
+                    stage_fixed: true
 
-          - name: prettier
-            glob: "*.{yaml,yml,json,md}"
-            exclude: "^(\\.github/.*|\\.beads/.*)$"
-            run: npx --yes prettier --list-different --write {staged_files}
-            stage_fixed: true
+                  - name: prettier
+                    glob: "*.{yaml,yml,json,md}"
+                    exclude: "^(\\.github/.*|\\.beads/.*)$"
+                    run: npx --yes prettier --list-different --write {staged_files}
+                    stage_fixed: true
 
-    # === Job 2: Lint ===
-    # Check formatted code for issues
-    - name: lint
-      group:
-        parallel: true
-        jobs:
-          - name: clippy
-            glob: "*.rs"
-            run: cargo clippy --all-targets --fix --allow-dirty --allow-staged -- -D warnings
-            stage_fixed: true
+                  - name: shfmt
+                    glob: "*.{sh,bash,ksh,dash}"
+                    run: uvx --from shfmt-py shfmt -w {staged_files}
+                    stage_fixed: true
 
-          - name: cargo-deny
-            run: cargo deny check
+        # === Job 2: Lint ===
+        # Check formatted code for issues
+        - name: lint
+          group:
+              parallel: true
+              jobs:
+                  - name: clippy
+                    glob: "*.rs"
+                    run: cargo clippy --all-targets --fix --allow-dirty --allow-staged -- -D warnings
+                    stage_fixed: true
 
-          - name: actionlint
-            glob: ".github/workflows/*.{yaml,yml}"
-            run: uvx --from actionlint-py actionlint {staged_files}
+                  - name: cargo-deny
+                    run: cargo deny check
 
-          - name: markdownlint
-            glob: "*.md"
-            exclude: "^(\\.beads/.*)$"
-            run: npx --yes markdownlint-cli@0.44.0 {staged_files}
+                  - name: actionlint
+                    glob: ".github/workflows/*.{yaml,yml}"
+                    run: uvx --from actionlint-py actionlint {staged_files}
 
-          - name: shellcheck
-            glob: "*.sh"
-            run: npx --yes shellcheck {staged_files}
+                  - name: markdownlint
+                    glob: "*.md"
+                    exclude: "^(\\.beads/.*)$"
+                    run: npx --yes markdownlint-cli@0.44.0 {staged_files}
 
-          - name: spectral
-            glob: "docs/api/*.{yaml,yml,json}"
-            run: npx --yes @stoplight/spectral-cli lint {staged_files}
+                  - name: shellcheck
+                    glob: "*.sh"
+                    run: npx --yes shellcheck {staged_files}
 
-          - name: hadolint
-            glob: "Dockerfile*"
-            run: hadolint {staged_files}
+                  - name: spectral
+                    glob: "docs/api/*.{yaml,yml,json}"
+                    run: npx --yes @stoplight/spectral-cli lint {staged_files}
 
-    # === Job 3: Security ===
-    # Scan for secrets and credentials
-    - name: security
-      group:
-        parallel: true
-        jobs:
-          - name: gitleaks
-            run: gitleaks protect --staged --no-banner
+                  - name: hadolint
+                    glob: "Dockerfile*"
+                    run: hadolint {staged_files}
+
+        # === Job 3: Security ===
+        # Scan for secrets and credentials
+        - name: security
+          group:
+              parallel: true
+              jobs:
+                  - name: gitleaks
+                    run: gitleaks protect --staged --no-banner
 
 commit-msg:
-  commands:
-    commitlint:
-      run: npx --yes commitlint --edit {1}
+    commands:
+        commitlint:
+            run: npx --yes commitlint --edit {1}
 
 pre-push:
-  parallel: true
-  commands:
-    cargo-test:
-      run: cargo test --lib
+    parallel: true
+    commands:
+        cargo-test:
+            run: cargo test --lib
 
-    cargo-build:
-      run: cargo build
+        cargo-build:
+            run: cargo build
 
-    cargo-audit:
-      run: cargo deny check advisories
+        cargo-audit:
+            run: cargo deny check advisories

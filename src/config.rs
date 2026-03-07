@@ -145,8 +145,8 @@ impl Config {
 
         if introspection_enabled {
             AuthModeConfig::OAuth2 {
-                base_url: env::var("OAUTH2_SERVICE_BASE_URL")
-                    .expect("OAUTH2_SERVICE_BASE_URL required when introspection is enabled"),
+                base_url: env::var("API_GATEWAY_URL")
+                    .expect("API_GATEWAY_URL required when introspection is enabled"),
                 client_id: env::var("OAUTH2_CLIENT_ID")
                     .expect("OAUTH2_CLIENT_ID required when introspection is enabled"),
                 client_secret: env::var("OAUTH2_CLIENT_SECRET")

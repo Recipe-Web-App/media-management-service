@@ -1,0 +1,3 @@
+# Follow sourced files to resolve cross-file references
+source-path=SCRIPTDIR
+external-sources=true
